@@ -1,0 +1,1 @@
+const col = QUEUE_COLS[Math.floor(Math.random() * QUEUE_COLS.length)]; // Só 1, 3, 5, 7

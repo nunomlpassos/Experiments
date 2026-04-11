@@ -5,6 +5,8 @@ interface GameUIProps {
   isGameOver: boolean;
   isPaused: boolean;
   isNewBest: boolean;
+  canRestartFromGameOver: boolean;
+  gameOverWaitSeconds: number;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   onToggleSound: () => void;
@@ -84,6 +86,8 @@ export function GameUI({
   isGameOver,
   isPaused,
   isNewBest,
+  canRestartFromGameOver,
+  gameOverWaitSeconds,
   soundEnabled,
   vibrationEnabled,
   onToggleSound,
@@ -124,9 +128,15 @@ export function GameUI({
             </div>
           </div>
 
-          <button type="button" onClick={onRestart} className="w-full px-3 py-2 rounded bg-red-600 text-white font-bold">
-            Play again
-          </button>
+          {canRestartFromGameOver ? (
+            <button type="button" onClick={onRestart} className="w-full px-3 py-2 rounded bg-red-600 text-white font-bold">
+              Play again
+            </button>
+          ) : (
+            <div className="w-full px-3 py-2 rounded bg-gray-300 text-gray-700 font-bold text-center">
+              Restart in {gameOverWaitSeconds}s
+            </div>
+          )}
         </div>
       </div>
     );

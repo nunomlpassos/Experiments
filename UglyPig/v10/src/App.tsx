@@ -24,6 +24,7 @@ interface FenceData {
 }
 
 type CountdownAction = "resume" | "restart" | null;
+type ExitReturnState = "playing" | "paused" | "gameover" | null;
 
 const getViewportSize = () => ({
   width: Math.max(320, window.innerWidth),
@@ -49,6 +50,8 @@ export default function App() {
     crashOffsetY: 0,
     showGameOverMenu: false,
     isNewBest: false,
+    canRestartFromGameOver: false,
+    gameOverWaitSeconds: 0,
   });
 
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -58,7 +61,7 @@ export default function App() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
-  const [wasPausedBeforeExit, setWasPausedBeforeExit] = useState(false);
+  const [exitReturnState, setExitReturnState] = useState<ExitReturnState>(null);
 
   const countdownActionRef = useRef<CountdownAction>(null);
   const pausedAtRef = useRef<number | null>(null);
@@ -82,6 +85,7 @@ export default function App() {
     crashFinalOffsetY: 0,
     showGameOverMenu: false,
     isNewBest: false,
+    gameOverReadyAt: 0,
   });
 
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -185,6 +189,7 @@ export default function App() {
     state.crashFinalOffsetY = 0;
     state.showGameOverMenu = false;
     state.isNewBest = false;
+    state.gameOverReadyAt = 0;
   }, [gameSize.width]);
 
   useEffect(() => {
@@ -224,23 +229,32 @@ export default function App() {
   const handleExitNo = useCallback(() => {
     setShowExitConfirm(false);
 
-    if (wasPausedBeforeExit) {
+    if (exitReturnState === "paused") {
       setIsPaused(true);
-      return;
-    }
-
-    if (hasStarted && !gameStateRef.current.isGameOver) {
+    } else if (exitReturnState === "gameover") {
+      gameStateRef.current.showGameOverMenu = true;
+      setIsPaused(false);
+    } else if (exitReturnState === "playing" && hasStarted && !gameStateRef.current.isGameOver) {
       startCountdown("resume");
     }
-  }, [wasPausedBeforeExit, hasStarted, startCountdown]);
+
+    setExitReturnState(null);
+  }, [exitReturnState, hasStarted, startCountdown]);
 
   const openExitConfirm = useCallback(() => {
     if (showExitConfirm) return;
-    setWasPausedBeforeExit(isPaused);
 
-    if (!isPaused && hasStarted && !gameStateRef.current.isGameOver && countdown === null) {
-      pausedAtRef.current = performance.now();
-      setIsPaused(true);
+    const state = gameStateRef.current;
+    if (state.showGameOverMenu || state.isGameOver) {
+      setExitReturnState("gameover");
+    } else if (isPaused) {
+      setExitReturnState("paused");
+    } else {
+      setExitReturnState("playing");
+      if (hasStarted && countdown === null) {
+        pausedAtRef.current = performance.now();
+        setIsPaused(true);
+      }
     }
 
     setShowExitConfirm(true);
@@ -427,6 +441,7 @@ export default function App() {
         state.impactFrames = 16;
         playPigHitSound();
         triggerVibration("impact");
+        state.gameOverReadyAt = performance.now() + 4000;
 
         if (state.score > state.topScore) {
           state.topScore = state.score;
@@ -447,6 +462,10 @@ export default function App() {
         state.impactFrames -= 1;
       }
 
+      const gameOverWaitMs = Math.max(0, state.gameOverReadyAt - performance.now());
+      const canRestartFromGameOver = state.showGameOverMenu ? gameOverWaitMs <= 0 : false;
+      const gameOverWaitSeconds = state.showGameOverMenu ? Math.max(1, Math.ceil(gameOverWaitMs / 1000)) : 0;
+
       setRenderState({
         pigX: state.pigX,
         pigDirection: state.pigDirection,
@@ -461,6 +480,8 @@ export default function App() {
         crashOffsetY,
         showGameOverMenu: state.showGameOverMenu,
         isNewBest: state.isNewBest,
+        canRestartFromGameOver,
+        gameOverWaitSeconds,
       });
 
       animationFrameId = requestAnimationFrame(gameLoop);
@@ -547,6 +568,8 @@ export default function App() {
           isGameOver={renderState.showGameOverMenu && countdown === null}
           isPaused={isPaused && countdown === null}
           isNewBest={renderState.isNewBest}
+          canRestartFromGameOver={renderState.canRestartFromGameOver}
+          gameOverWaitSeconds={renderState.gameOverWaitSeconds}
           soundEnabled={soundEnabled}
           vibrationEnabled={vibrationEnabled}
           onToggleSound={() => setSoundEnabled((s) => !s)}

@@ -356,13 +356,16 @@ export default function App() {
       countdownActionRef.current = null;
       setCountdown(null);
 
-      if (action === "restart") resetRun();
-
-      const now = performance.now();
-      if (pausedAtRef.current !== null) {
-        const pausedDuration = now - pausedAtRef.current;
-        gameStateRef.current.lastSpawnTime += pausedDuration;
+      if (action === "restart") {
+        resetRun();
         pausedAtRef.current = null;
+      } else {
+        const now = performance.now();
+        if (pausedAtRef.current !== null) {
+          const pausedDuration = now - pausedAtRef.current;
+          gameStateRef.current.lastSpawnTime += pausedDuration;
+          pausedAtRef.current = null;
+        }
       }
       return;
     }

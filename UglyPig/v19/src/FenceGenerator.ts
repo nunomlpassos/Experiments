@@ -1,6 +1,6 @@
 export function generateFence(gameWidth: number) {
-  const minGapWidth = 120; // Easier for casual players
-  const maxGapWidth = 170;
+  const minGapWidth = 140; // wider gap for casual players
+  const maxGapWidth = 200;
   const gapWidth = Math.floor(Math.random() * (maxGapWidth - minGapWidth + 1)) + minGapWidth;
   
   const maxGapStart = gameWidth - gapWidth;

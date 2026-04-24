@@ -9,10 +9,10 @@ import { FarmBackground } from "./FarmBackground";
 import startScreenImage from "./assets/start-screen.jpg";
 import brandLogo from "./assets/brand-logo.jpg";
 
-const PIG_SPEED_X = 4.4;
-const FENCE_SPEED = 2.1;
-const FENCE_SPAWN_INTERVAL = 1800;
-const FIRST_FENCE_DELAY = 550;
+const PIG_SPEED_X = 3.96; // 10% slower
+const FENCE_SPEED = 1.89; // 10% slower
+const FENCE_SPAWN_INTERVAL = 2200; // more spacing between fences
+const FIRST_FENCE_DELAY = 700;
 const PIG_SIZE = 42;
 const FENCE_HEIGHT = 24;
 const CRASH_DURATION_MS = 900;

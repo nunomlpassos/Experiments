@@ -1,0 +1,4 @@
+storeFile=C:/Users/nuno_/Documents/Barnun/secrets/android/fugitive-pig-upload-key.jks
+storePassword=DO_NOT_COMMIT_REAL_PASSWORD
+keyAlias=fugitive-pig-upload
+keyPassword=DO_NOT_COMMIT_REAL_PASSWORD

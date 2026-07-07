@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mouse Maze Run</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="top-bar" aria-label="Game status">
+        <div>
+          <p class="eyebrow">Mouse Maze Run</p>
+          <h1 id="levelTitle">Level 1</h1>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <span>Moves</span>
+            <strong id="movesLeft">0</strong>
+          </div>
+          <div class="stat">
+            <span>Best</span>
+            <strong id="bestPath">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="maze-wrap" aria-label="Maze board">
+        <div id="maze" class="maze" role="application" aria-label="Swipe to move the mouse through the maze"></div>
+      </section>
+
+      <section class="controls" aria-label="Level controls">
+        <div class="stars" id="stars" aria-label="Star rating">☆ ☆ ☆</div>
+        <p id="message" class="message">Study the maze, then swipe one cell at a time.</p>
+        <div class="buttons">
+          <button id="retryButton" type="button">Retry</button>
+          <button id="nextButton" type="button">New Maze</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>

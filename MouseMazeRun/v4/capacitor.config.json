@@ -1,0 +1,8 @@
+{
+  "appId": "com.nunogames.mousemazerun",
+  "appName": "Mouse Maze Run",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

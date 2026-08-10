@@ -16,6 +16,12 @@ import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.rewarded.RewardedAd;
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
+import com.google.android.ump.ConsentInformation;
+import com.google.android.ump.ConsentRequestParameters;
+import com.google.android.ump.UserMessagingPlatform;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @CapacitorPlugin(name = "RewardedAds")
 public class RewardedAdsPlugin extends Plugin {
@@ -24,6 +30,10 @@ public class RewardedAdsPlugin extends Plugin {
 
   private RewardedAd rewardedAd;
   private boolean isLoading;
+  private boolean consentFlowInProgress;
+  private boolean mobileAdsInitialized;
+  private ConsentInformation consentInformation;
+  private final List<AdsReadyCallback> pendingAdsReadyCallbacks = new ArrayList<>();
   private PluginCall pendingShowCall;
   private boolean rewardEarned;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -36,8 +46,17 @@ public class RewardedAdsPlugin extends Plugin {
   @Override
   public void load() {
     getActivity().runOnUiThread(() -> {
-      MobileAds.initialize(getContext(), initializationStatus -> {});
-      loadRewardedAd();
+      ensureAdsCanLoad(new AdsReadyCallback() {
+        @Override
+        public void onReady() {
+          loadRewardedAd();
+        }
+
+        @Override
+        public void onUnavailable(String message) {
+          // Ads stay disabled until UMP says they can be requested.
+        }
+      });
     });
   }
 
@@ -50,30 +69,50 @@ public class RewardedAdsPlugin extends Plugin {
       }
 
       pendingShowCall = call;
+      ensureAdsCanLoad(new AdsReadyCallback() {
+        @Override
+        public void onReady() {
+          if (rewardedAd != null) {
+            showLoadedRewardedAd();
+            return;
+          }
 
-      if (rewardedAd != null) {
-        showLoadedRewardedAd();
-        return;
-      }
+          schedulePendingShowTimeout();
+          loadRewardedAd();
+        }
 
-      schedulePendingShowTimeout();
-      loadRewardedAd();
+        @Override
+        public void onUnavailable(String message) {
+          rejectPendingShowCall(message);
+        }
+      });
     });
   }
 
   @PluginMethod
   public void prepareRewardedAd(PluginCall call) {
     getActivity().runOnUiThread(() -> {
-      loadRewardedAd();
+      ensureAdsCanLoad(new AdsReadyCallback() {
+        @Override
+        public void onReady() {
+          loadRewardedAd();
 
-      JSObject result = new JSObject();
-      result.put("loaded", rewardedAd != null);
-      result.put("loading", isLoading);
-      call.resolve(result);
+          JSObject result = new JSObject();
+          result.put("loaded", rewardedAd != null);
+          result.put("loading", isLoading);
+          call.resolve(result);
+        }
+
+        @Override
+        public void onUnavailable(String message) {
+          call.reject(message);
+        }
+      });
     });
   }
 
   private void loadRewardedAd() {
+    if (!canRequestAds()) return;
     if (isLoading || rewardedAd != null) return;
 
     isLoading = true;
@@ -154,5 +193,111 @@ public class RewardedAdsPlugin extends Plugin {
   private String getRewardedAdUnitId() {
     boolean isDebuggable = (getContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     return isDebuggable ? TEST_REWARDED_AD_UNIT_ID : RELEASE_REWARDED_AD_UNIT_ID;
+  }
+
+  private void ensureAdsCanLoad(AdsReadyCallback callback) {
+    if (canRequestAds()) {
+      initializeMobileAdsIfNeeded(callback);
+      return;
+    }
+
+    pendingAdsReadyCallbacks.add(callback);
+    gatherConsentIfNeeded();
+  }
+
+  private void gatherConsentIfNeeded() {
+    if (consentFlowInProgress) return;
+
+    consentFlowInProgress = true;
+    consentInformation = UserMessagingPlatform.getConsentInformation(getContext());
+    ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
+
+    consentInformation.requestConsentInfoUpdate(
+      getActivity(),
+      params,
+      () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(
+        getActivity(),
+        formError -> {
+          consentFlowInProgress = false;
+          if (formError != null && !canRequestAds()) {
+            notifyAdsUnavailable("Consent form error: " + formError.getMessage());
+            return;
+          }
+
+          if (canRequestAds()) {
+            initializeMobileAdsIfNeeded(new AdsReadyCallback() {
+              @Override
+              public void onReady() {
+                notifyAdsReady();
+              }
+
+              @Override
+              public void onUnavailable(String message) {
+                notifyAdsUnavailable(message);
+              }
+            });
+            return;
+          }
+
+          notifyAdsUnavailable("User consent is required before requesting ads.");
+        }
+      ),
+      requestConsentError -> {
+        consentFlowInProgress = false;
+        if (canRequestAds()) {
+          initializeMobileAdsIfNeeded(new AdsReadyCallback() {
+            @Override
+            public void onReady() {
+              notifyAdsReady();
+            }
+
+            @Override
+            public void onUnavailable(String message) {
+              notifyAdsUnavailable(message);
+            }
+          });
+          return;
+        }
+
+        notifyAdsUnavailable("Consent update error: " + requestConsentError.getMessage());
+      }
+    );
+  }
+
+  private boolean canRequestAds() {
+    return consentInformation != null && consentInformation.canRequestAds();
+  }
+
+  private void initializeMobileAdsIfNeeded(AdsReadyCallback callback) {
+    if (mobileAdsInitialized) {
+      if (callback != null) callback.onReady();
+      return;
+    }
+
+    mobileAdsInitialized = true;
+    MobileAds.initialize(getContext(), initializationStatus -> {
+      if (callback != null) callback.onReady();
+    });
+  }
+
+  private void notifyAdsReady() {
+    List<AdsReadyCallback> callbacks = new ArrayList<>(pendingAdsReadyCallbacks);
+    pendingAdsReadyCallbacks.clear();
+    for (AdsReadyCallback callback : callbacks) {
+      callback.onReady();
+    }
+  }
+
+  private void notifyAdsUnavailable(String message) {
+    List<AdsReadyCallback> callbacks = new ArrayList<>(pendingAdsReadyCallbacks);
+    pendingAdsReadyCallbacks.clear();
+    for (AdsReadyCallback callback : callbacks) {
+      callback.onUnavailable(message);
+    }
+  }
+
+  private interface AdsReadyCallback {
+    void onReady();
+    void onUnavailable(String message);
   }
 }

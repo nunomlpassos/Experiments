@@ -5,8 +5,8 @@
 - Source: `Alfa/v46.1`
 - Phase branch/folder: `Beta/v47`
 - Internal game version: `v47`
-- Android version code: `47`
-- Android version name: `0.1.0-alpha.1`
+- Android version code: `49`
+- Android version name: `1.0.0`
 - Compile SDK: `36`
 - Target SDK: `36`
 - Developer/studio name: `Barnun`

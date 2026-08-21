@@ -184,7 +184,18 @@ button:disabled {
 }
 
 .moves-focus span {
+  align-items: center;
+  display: flex;
+  gap: 3px;
+  justify-content: center;
   margin-top: 2px;
+}
+
+.moves-focus small {
+  color: #9a6e20;
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1;
 }
 
 .test-reset-button {

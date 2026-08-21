@@ -109,6 +109,7 @@ globalThis.__variantValidation = LEVEL_CONFIGS.map((config, levelIndex) => {
   const signatures = new Set();
   const exitKeys = new Set();
   const exitRows = new Set();
+  const cheesePairKeys = new Set();
   const startKeys = new Set();
   const variants = [];
 
@@ -117,21 +118,68 @@ globalThis.__variantValidation = LEVEL_CONFIGS.map((config, levelIndex) => {
     const distance = variant.path.length - 1;
     const routes = countRoutesToExit(variant.grid, variant.exit, 3, variant.start);
     const alternate = variant.alternatePath;
+    const singleRoute = config.singleRoute === true;
+    const multiCheese = config.cheeseCount === 2;
+    const rockLevel = Boolean(config.rockMode);
+    const hingedLevel = Boolean(config.hingedWallCount);
+    const difficulty = variant.difficultyProfile;
     const signature = variant.grid
       .flat()
       .map((cell) => [cell.walls.top, cell.walls.right, cell.walls.bottom, cell.walls.left]
         .map((wall) => Number(wall))
         .join(""))
-      .join("") + ":" + keyOf(variant.exit) + ":" + keyOf(variant.start);
+      .join("") + ":" + keyOf(variant.exit) + ":" + keyOf(variant.start) + ":" +
+      (variant.rocks ?? []).map(keyOf).sort().join(";") + ":" +
+      (variant.hingedWalls ?? [])
+        .map((wall) => segmentKey(wall.source) + ">" + segmentKey(wall.destination))
+        .sort()
+        .join(";");
 
     if (distance < config.minPath || distance > config.maxPath) {
       throw new Error("Level " + (levelIndex + 1) + " variant " + (variantIndex + 1) + " has invalid distance");
     }
+    const routeRulesBreak = hingedLevel
+      ? !Array.isArray(variant.hingedWalls) ||
+        variant.hingedWalls.length !== config.hingedWallCount ||
+        !variant.hingedSolution ||
+        variant.hingedSolution.triggers !== config.hingedWallCount ||
+        variant.hingedWalls.some(
+          (wall) =>
+            !segmentHasWall(variant.grid, wall.source) ||
+            segmentHasWall(variant.grid, wall.destination) ||
+            segmentKey(wall.source) === segmentKey(wall.destination) ||
+            !hingedSweepClearsCell(
+              wall.source,
+              wall.destination,
+              wall.hinge,
+              wall.triggerFrom,
+            ),
+        ) ||
+        variant.moveLimit !== distance + config.moveMargin
+      : rockLevel
+      ? !Array.isArray(variant.rocks) ||
+        variant.rocks.length !== config.rockCount ||
+        !variant.rockSolution ||
+        variant.rockSolution.pushes < 1 ||
+        variant.moveLimit !== distance + config.moveMargin ||
+        (config.rockMode === "blocker" && variant.hiddenCheeseKeys.length !== 0) ||
+        (config.rockMode !== "blocker" && !variant.hiddenCheeseKeys.includes(keyOf(variant.exit)))
+      : multiCheese
+      ? !Array.isArray(variant.exits) ||
+        variant.exits.length !== 2 ||
+        keyOf(variant.exits[0]) === keyOf(variant.exits[1]) ||
+        !alternate ||
+        alternate.length - 1 > variant.moveLimit ||
+        variant.orderPenalty < config.minOrderPenalty ||
+        variant.orderPenalty > config.maxOrderPenalty ||
+        variant.moveLimit !== distance + config.moveMargin
+      : singleRoute
+      ? routes !== 1 || alternate !== null || variant.moveLimit !== distance + config.moveMargin
+      : routes < 2 || !alternate || alternate.length - 1 > variant.moveLimit;
     if (
       distance > variant.moveLimit ||
-      alternate.length - 1 > variant.moveLimit ||
-      routes < 2 ||
-      !alternate ||
+      routeRulesBreak ||
+      !passesExtremeDifficulty(config, difficulty) ||
       keyOf(variant.path[0]) !== keyOf(variant.start) ||
       keyOf(variant.start) === keyOf(variant.exit) ||
       !START_CORNERS.some((corner) => keyOf(corner) === keyOf(variant.start)) ||
@@ -146,6 +194,16 @@ globalThis.__variantValidation = LEVEL_CONFIGS.map((config, levelIndex) => {
     signatures.add(signature);
     exitKeys.add(keyOf(variant.exit));
     exitRows.add(variant.exit.row);
+    const targetKeys = (variant.exits ?? [variant.exit]).map(keyOf).sort();
+    targetKeys.forEach((targetKey) => {
+      const [row] = targetKey.split(",");
+      exitRows.add(Number(row));
+    });
+    const pairKey = targetKeys.join("|");
+    if (cheesePairKeys.has(pairKey)) {
+      throw new Error("Level " + (levelIndex + 1) + " repeats a cheese pair");
+    }
+    cheesePairKeys.add(pairKey);
     startKeys.add(keyOf(variant.start));
     variants.push({
       variant: variantIndex + 1,
@@ -153,9 +211,18 @@ globalThis.__variantValidation = LEVEL_CONFIGS.map((config, levelIndex) => {
       distance,
       moveLimit: variant.moveLimit,
       routes,
-      alternateDistance: alternate.length - 1,
+      alternateDistance: alternate ? alternate.length - 1 : null,
+      difficulty,
       attempt: variant.attempt,
       exit: keyOf(variant.exit),
+      exits: targetKeys,
+      orderPenalty: variant.orderPenalty ?? null,
+      rocks: (variant.rocks ?? []).map(keyOf),
+      pushes: variant.rockSolution?.pushes ?? null,
+      hingedWalls: (variant.hingedWalls ?? []).map(
+        (wall) => segmentKey(wall.source) + ">" + segmentKey(wall.destination),
+      ),
+      hingedDetour: variant.hingedSolution?.detourPenalty ?? null,
     });
   }
 
@@ -1719,8 +1786,8 @@ while (
 if (
   fishingCatchAnimating ||
   !gameOver ||
-  exit.row !== mouse.row ||
-  exit.col !== mouse.col ||
+  exit !== null ||
+  !cheeseEaten ||
   movesLeft !== fishingMovesBefore ||
   controlsPanelEl.hidden ||
   fishingPowerCountEl.textContent !== "+"
@@ -1733,11 +1800,258 @@ globalThis.performance = originalPerformance;
 globalThis.matchMedia = originalMatchMedia;
 motionFrames.length = 0;
 drawRequest = 0;
+
+const multiCheeseVariant = buildLevelVariant(LEVEL_CONFIGS[3], 0);
+level = 4;
+maze = multiCheeseVariant.grid;
+levelStart = { ...multiCheeseVariant.start };
+mouse = { ...multiCheeseVariant.exits[0] };
+cheeseTargets = multiCheeseVariant.exits.map((target) => ({ ...target }));
+collectedCheeseKeys = new Set();
+exit = { ...multiCheeseVariant.exit };
+shortestPath = multiCheeseVariant.path;
+moveLimit = multiCheeseVariant.moveLimit;
+movesLeft = moveLimit;
+gameOver = false;
+campaignComplete = false;
+clearCheeseEatingAnimation();
+setMovementControlsEnabled(true);
+setPowerControlsEnabled(true);
+startCheeseEatingAnimation(cheeseAt(mouse));
+cheeseEatingStartedAt = 0;
+animateCheeseEating(CHEESE_EAT_DURATION_MS);
+if (
+  collectedCheeseKeys.size !== 1 ||
+  remainingCheeseTargets().length !== 1 ||
+  cheeseEaten ||
+  gameOver ||
+  controlsPanelEl.hidden !== true ||
+  !movementControlsEnabled ||
+  !powerControlsEnabled
+) {
+  throw new Error("First cheese did not resume the two-cheese level cleanly");
+}
+
+mouse = { ...remainingCheeseTargets()[0] };
+startCheeseEatingAnimation(cheeseAt(mouse));
+cheeseEatingStartedAt = 0;
+animateCheeseEating(CHEESE_EAT_DURATION_MS);
+if (
+  collectedCheeseKeys.size !== 2 ||
+  remainingCheeseTargets().length !== 0 ||
+  !cheeseEaten ||
+  !gameOver ||
+  controlsPanelEl.hidden !== false
+) {
+  throw new Error("Second cheese did not complete the two-cheese level");
+}
+
+const rockVariant = buildLevelVariant(LEVEL_CONFIGS[4], 0);
+globalThis.__rockTutorialActions = rockVariant.rockSolution.actions;
+const firstPushIndex = rockVariant.rockSolution.actions.findIndex((action) => action.rockFrom);
+if (firstPushIndex < 0) throw new Error("Rock tutorial has no push action");
+level = 5;
+maze = rockVariant.grid;
+levelStart = { ...rockVariant.start };
+mouse = { ...rockVariant.start };
+cheeseTargets = rockVariant.exits.map((target) => ({ ...target }));
+collectedCheeseKeys = new Set();
+initialRocks = rockVariant.rocks.map((rock) => ({ ...rock }));
+rockPositions = initialRocks.map((rock) => ({ ...rock }));
+hiddenCheeseKeys = new Set(rockVariant.hiddenCheeseKeys);
+exit = { ...rockVariant.exit };
+shortestPath = rockVariant.path;
+moveLimit = rockVariant.moveLimit;
+movesLeft = moveLimit;
+gameOver = false;
+campaignComplete = false;
+levelIntro = null;
+clearMouseMotion();
+clearCheeseEatingAnimation();
+clearPowerTargetingState();
+for (let index = 0; index < firstPushIndex; index += 1) {
+  const action = rockVariant.rockSolution.actions[index];
+  mouse = { ...action.mouse };
+  if (action.rockFrom) {
+    const movedRock = rockPositions.find((rock) => keyOf(rock) === keyOf(action.rockFrom));
+    movedRock.row = action.rockTo.row;
+    movedRock.col = action.rockTo.col;
+  }
+}
+const tutorialPush = rockVariant.rockSolution.actions[firstPushIndex];
+setMovementControlsEnabled(true);
+setPowerControlsEnabled(true);
+const crystalRockPath = currentCrystalPath();
+if (!crystalRockPath.length || keyOf(crystalRockPath.at(-1)) !== keyOf(rockVariant.exit)) {
+  throw new Error("Crystal Vision did not solve the rock tutorial");
+}
+if (getFishingCatchTarget()) {
+  throw new Error("Fishing Rod exposed a cheese that was still hidden by a rock");
+}
+if (getRocketTargets().some((target) => keyOf(target) === keyOf(tutorialPush.rockFrom))) {
+  throw new Error("Mouse Rocket allowed landing on a rock");
+}
+move(tutorialPush.direction);
+if (mouseMotion) {
+  if (!mouseMotion.rockPush) {
+    throw new Error("Walking into a movable rock started an ordinary move");
+  }
+  mouseMotion.progress = 1;
+  finishMouseMotion();
+}
+if (
+  keyOf(mouse) !== keyOf(tutorialPush.rockFrom) ||
+  !rockAt(tutorialPush.rockTo) ||
+  (!cheeseEatingAnimating && !cheeseEaten) ||
+  (cheeseEatingAnimating && keyOf(cheeseEatingTarget) !== keyOf(rockVariant.exit))
+) {
+  throw new Error("Rock push did not reveal and collect the hidden cheese");
+}
+if (cheeseEatingAnimating) {
+  cheeseEatingStartedAt = 0;
+  animateCheeseEating(CHEESE_EAT_DURATION_MS);
+}
+if (!gameOver || !cheeseEaten || collectedCheeseKeys.size !== 1) {
+  throw new Error("Rock tutorial did not finish after eating the revealed cheese");
+}
+
+const hingedVariant = buildLevelVariant(LEVEL_CONFIGS[6], 0);
+level = 7;
+maze = hingedVariant.grid;
+levelStart = { ...hingedVariant.start };
+cheeseTargets = [{ ...hingedVariant.exit }];
+collectedCheeseKeys = new Set();
+initialRocks = [];
+rockPositions = [];
+hiddenCheeseKeys = new Set();
+initialHingedWalls = hingedVariant.hingedWalls.map((wall) => ({
+  ...wall,
+  source: { ...wall.source },
+  destination: { ...wall.destination },
+  hinge: { ...wall.hinge },
+}));
+hingedWalls = initialHingedWalls.map((wall) => ({
+  ...wall,
+  source: { ...wall.source },
+  destination: { ...wall.destination },
+  hinge: { ...wall.hinge },
+  activated: false,
+  destroyed: false,
+  moving: false,
+}));
+exit = { ...hingedVariant.exit };
+shortestPath = hingedVariant.path;
+moveLimit = hingedVariant.moveLimit;
+movesLeft = moveLimit;
+gameOver = false;
+campaignComplete = false;
+levelIntro = null;
+clearMouseMotion();
+clearHingedWallAnimation();
+clearPowerTargetingState();
+const hingedWall = hingedWalls[0];
+const hingeTriggerIndex = hingedVariant.path.findIndex(
+  (cell) => keyOf(cell) === keyOf(hingedWall.triggerFrom),
+);
+if (hingeTriggerIndex < 1) throw new Error("Hinged wall trigger has no approach cell");
+const hingeApproach = hingedVariant.path[hingeTriggerIndex - 1];
+mouse = { ...hingeApproach };
+const hingeDirection = DIRS.find(
+  (dir) =>
+    hingeApproach.row + dir.row === hingedWall.triggerFrom.row &&
+    hingeApproach.col + dir.col === hingedWall.triggerFrom.col,
+);
+const hingeMovesBefore = movesLeft;
+const hingeMouseBefore = { ...mouse };
+const hingeFrames = [];
+globalThis.performance = { now: () => 0 };
+globalThis.matchMedia = () => ({ matches: false });
+globalThis.requestAnimationFrame = (callback) => {
+  hingeFrames.push(callback);
+  return hingeFrames.length;
+};
+globalThis.cancelAnimationFrame = () => {};
+setMovementControlsEnabled(true);
+setPowerControlsEnabled(true);
+move(hingeDirection.key);
+if (
+  !hingedWallAnimation ||
+  !hingedWall.moving ||
+  !mouseMotion ||
+  segmentHasWall(maze, hingedWall.source) ||
+  segmentHasWall(maze, hingedWall.destination) ||
+  keyOf(mouse) !== keyOf(hingeMouseBefore) ||
+  movesLeft !== hingeMovesBefore ||
+  movementControlsEnabled ||
+  powerControlsEnabled
+) {
+  throw new Error("Hinged wall did not start while the mouse entered its trigger cell");
+}
+mouseMotion.progress = 1;
+finishMouseMotion();
+if (
+  mouseMotion ||
+  keyOf(mouse) !== keyOf(hingedWall.triggerFrom) ||
+  movesLeft !== hingeMovesBefore - 1 ||
+  !hingedWallAnimation
+) {
+  throw new Error("Mouse did not enter the trigger cell while the wall kept rotating");
+}
+hingedWallAnimation.startedAt = 0;
+animateHingedWall(HINGED_WALL_MOVE_DURATION_MS / 2);
+if (!hingedWallAnimation || hingedWallAnimation.progress < 0.49) {
+  throw new Error("Hinged wall did not animate through its pivot");
+}
+animateHingedWall(HINGED_WALL_MOVE_DURATION_MS);
+if (
+  hingedWallAnimation ||
+  !hingedWall.activated ||
+  hingedWall.moving ||
+  segmentHasWall(maze, hingedWall.source) ||
+  !segmentHasWall(maze, hingedWall.destination) ||
+  keyOf(mouse) !== keyOf(hingedWall.triggerFrom) ||
+  movesLeft !== hingeMovesBefore - 1 ||
+  !movementControlsEnabled ||
+  !powerControlsEnabled
+) {
+  throw new Error("Hinged wall did not settle cleanly in the blocking position");
+}
+globalThis.matchMedia = () => ({ matches: true });
+powerInventory.hammer = 1;
+syncPowerAvailability();
+hammerTargeting = true;
+const hingedHammerTarget = getHammerTargets().find(
+  (target) => segmentKey(target.segment) === segmentKey(hingedWall.destination),
+);
+destroyHammerTarget(hingedHammerTarget);
+if (!hingedWall.destroyed || segmentHasWall(maze, hingedWall.destination)) {
+  throw new Error("Hammer did not permanently destroy the activated hinged wall");
+}
+globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+globalThis.performance = originalPerformance;
+globalThis.matchMedia = originalMatchMedia;
+
 globalThis.__hammerValidation = true;
 globalThis.__rocketValidation = true;
 globalThis.__tornadoValidation = true;
 globalThis.__crystalValidation = true;
 globalThis.__fishingValidation = true;
+globalThis.__rockValidation = true;
+globalThis.__hingedWallValidation = true;
+const browserHingedVariant = buildLevelVariant(LEVEL_CONFIGS[6], 1);
+const browserHingedWall = browserHingedVariant.hingedWalls[0];
+const triggerPathIndex = browserHingedVariant.path.findIndex(
+  (cell) => keyOf(cell) === keyOf(browserHingedWall.triggerFrom),
+);
+globalThis.__hingedBrowserRoute = [
+  ...browserHingedVariant.path.slice(0, triggerPathIndex + 1).slice(1).map((cell, index) => {
+    const previous = browserHingedVariant.path[index];
+    return DIRS.find(
+      (dir) => previous.row + dir.row === cell.row && previous.col + dir.col === cell.col,
+    ).key;
+  }),
+];
 `;
 
 vm.runInNewContext(gameWithoutBootstrap + verification, sandbox, {
@@ -1750,8 +2064,16 @@ for (const level of sandbox.__variantValidation) {
   const attempts = level.variants.map((variant) => variant.attempt).join(",");
   const exits = level.variants.map((variant) => variant.exit).join(" | ");
   const starts = level.variants.map((variant) => variant.start).join(" | ");
+  const deception = level.variants
+    .map((variant) => {
+      const profile = variant.difficulty;
+      return profile
+        ? `${profile.solutionJunctions}/${profile.falseBranches}/${profile.deepFalseBranches}/${profile.falseBranchCells}/${profile.maxFalseBranchDepth}/${profile.goalFacingBranches}/${profile.misleadingBranches}/${profile.nearGoalTraps}/${profile.greedyPenalty}/${profile.startGoalManhattan}`
+        : "-";
+    })
+    .join(" | ");
   console.log(
-    `Level ${level.level}: moves=[${level.variants.map((variant) => variant.moveLimit).join(",")}] shortest=[${distances}] starts=[${starts}] exits=[${exits}] attempts=[${attempts}]`,
+    `Level ${level.level}: moves=[${level.variants.map((variant) => variant.moveLimit).join(",")}] shortest=[${distances}] starts=[${starts}] exits=[${exits}] deception=[${deception}] attempts=[${attempts}]`,
   );
 }
 
@@ -1776,3 +2098,7 @@ console.log("Validated exclusive power selection and cancellation without consum
 console.log("Validated tornado vortex paths, safe variation, and restored mouse and cheese positions.");
 console.log("Validated crystal reveal timing, movement lock, cancellation, and limited-route recovery.");
 console.log("Validated fishing diagonal range, unavailable state, and no-move catch completion.");
+console.log("Validated rock pushing, collision, hidden-cheese reveal, and completion.");
+console.log("Validated arrival-triggered hinged walls, fixed-pivot animation, clear sweep, and hammer destruction.");
+console.log("Level 5 rock tutorial route:", sandbox.__rockTutorialActions.map((action) => action.direction).join(","));
+console.log("Level 7 hinge trigger route:", sandbox.__hingedBrowserRoute.join(","));

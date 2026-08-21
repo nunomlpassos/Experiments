@@ -18,6 +18,8 @@ const MOUSE_IDLE_SCALE = 0.96;
 const MOUSE_FALLBACK_SCALE = 0.9;
 const MOUSE_ACTION_SCALE = 0.98;
 const CHEESE_SCALE = 0.9;
+const ROCK_SCALE = 1.06;
+const HINGED_WALL_MOVE_DURATION_MS = 760;
 const CHEESE_EAT_DURATION_MS = 1600;
 const CHEESE_EAT_SETTLE_RATIO = 0.16;
 const MOUSE_DEFEAT_DURATION_MS = CHEESE_EAT_DURATION_MS;
@@ -86,9 +88,83 @@ const POWER_CONFIGS = {
 const LEVEL_CONFIGS = [
   { seed: 1129, moveLimit: 18, minPath: 10, maxPath: 12, startOffset: 0 },
   { seed: 2113, moveLimit: 20, minPath: 12, maxPath: 14, startOffset: 1 },
-  { seed: 3251, moveLimit: 22, minPath: 14, maxPath: 16, startOffset: 2 },
-  { seed: 4231, moveLimit: 24, minPath: 16, maxPath: 18, startOffset: 3 },
-  { seed: 5417, moveLimit: 26, minPath: 18, maxPath: 20, startOffset: 0 },
+  {
+    seed: 3251,
+    moveLimit: 30,
+    minPath: 21,
+    maxPath: 28,
+    minTurns: 8,
+    minDeadEnds: 9,
+    loops: 6,
+    startOffset: 2,
+  },
+  {
+    seed: 4231,
+    cheeseCount: 2,
+    moveLimit: 34,
+    minPath: 22,
+    maxPath: 29,
+    minTurns: 7,
+    minDeadEnds: 7,
+    minCheeseDistance: 8,
+    minOrderPenalty: 3,
+    maxOrderPenalty: 6,
+    moveMargin: 8,
+    startOffset: 3,
+    loops: 10,
+  },
+  {
+    seed: 5417,
+    rockMode: "hidden",
+    rockCount: 1,
+    moveLimit: 22,
+    minPath: 10,
+    maxPath: 16,
+    minTurns: 4,
+    minDeadEnds: 6,
+    moveMargin: 6,
+    startOffset: 0,
+    loops: 8,
+  },
+  {
+    seed: 6619,
+    rockMode: "search",
+    rockCount: 3,
+    moveLimit: 34,
+    minPath: 18,
+    maxPath: 27,
+    minTurns: 7,
+    minDeadEnds: 7,
+    moveMargin: 8,
+    startOffset: 1,
+    loops: 7,
+  },
+  {
+    seed: 7759,
+    hingedWallCount: 1,
+    moveLimit: 28,
+    minPath: 15,
+    maxPath: 24,
+    minTurns: 6,
+    minDeadEnds: 7,
+    minHingedDetour: 3,
+    moveMargin: 7,
+    startOffset: 2,
+    loops: 8,
+  },
+  {
+    seed: 8819,
+    hingedWallCount: 2,
+    moveLimit: 36,
+    minPath: 21,
+    maxPath: 32,
+    minTurns: 8,
+    minDeadEnds: 8,
+    minHingedDetour: 2,
+    moveMargin: 8,
+    startOffset: 3,
+    loops: 6,
+  },
 ];
 const DIRS = [
   { key: "up", row: -1, col: 0, wall: "top", opposite: "bottom" },
@@ -108,6 +184,7 @@ const mazeEl = document.querySelector("#maze");
 const controlsPanelEl = document.querySelector("#controlsPanel");
 const movesLeftEl = document.querySelector("#movesLeft");
 const movesStatEl = document.querySelector("#movesStat");
+const cheeseProgressEl = document.querySelector("#cheeseProgress");
 const testResetButton = document.querySelector("#testResetButton");
 const levelLabelEl = document.querySelector("#levelLabel");
 const levelTitleEl = document.querySelector("#levelTitle");
@@ -158,6 +235,7 @@ const mouseEatingSprite = new Image();
 const mouseSleepSprite = new Image();
 const mouseSniffSprite = new Image();
 const cheeseSprite = new Image();
+const rockSprite = new Image();
 const crystalSprite = new Image();
 const tornadoSprite = new Image();
 const fishingSprite = new Image();
@@ -183,6 +261,7 @@ mouseEatingSprite.src = "assets/mouse-eat-strip.png?v=v2-eat-1";
 mouseSleepSprite.src = "assets/mouse-sleep-strip.png?v=v2-sleep-1";
 mouseSniffSprite.src = "assets/mouse-sniff-strip.png?v=v2-intro-1";
 cheeseSprite.src = "assets/cheese.svg?v=campaign-53";
+rockSprite.src = "assets/rock.png?v=v4-rocks-1";
 crystalSprite.src = "assets/crystal-power.png?v=campaign-53";
 tornadoSprite.src = "assets/tornado-power.png?v=campaign-53";
 fishingSprite.src =
@@ -262,6 +341,15 @@ let level = 1;
 let activeVariantIndex = -1;
 let maze = [];
 let exit = null;
+let cheeseTargets = [];
+let collectedCheeseKeys = new Set();
+let initialRocks = [];
+let rockPositions = [];
+let hiddenCheeseKeys = new Set();
+let initialHingedWalls = [];
+let hingedWalls = [];
+let hingedWallAnimation = null;
+let hingedWallAnimationFrame = null;
 let levelStart = { ...START };
 let mouse = { ...START };
 let shortestPath = [];
@@ -315,6 +403,8 @@ let cheeseEatingProgress = 0;
 let cheeseEatingStartedAt = null;
 let cheeseEatingFrame = null;
 let cheeseEaten = false;
+let cheeseEatingTarget = null;
+let activeFishingCatchTarget = null;
 let mouseDefeatAnimating = false;
 let mouseDefeatProgress = 0;
 let mouseDefeatStartedAt = null;
@@ -349,6 +439,7 @@ mouseEatingSprite.addEventListener("load", requestMazeDraw);
 mouseSleepSprite.addEventListener("load", requestMazeDraw);
 mouseSniffSprite.addEventListener("load", requestMazeDraw);
 cheeseSprite.addEventListener("load", requestMazeDraw);
+rockSprite.addEventListener("load", requestMazeDraw);
 crystalSprite.addEventListener("load", requestMazeDraw);
 tornadoSprite.addEventListener("load", requestMazeDraw);
 fishingSprite.addEventListener("load", requestMazeDraw);
@@ -849,20 +940,27 @@ function updatePowerButton(powerKey, button, countEl, active, canUse = true) {
 }
 
 function hammerCanFinishLevel() {
-  if (!exit) return false;
+  const remaining = remainingCheeseTargets();
+  if (remaining.length !== 1) return false;
+  const targetCheese = remaining[0];
+  if (!isCheeseVisible(targetCheese)) return false;
   return getHammerTargets().some(
-    (target) => target.nextRow === exit.row && target.nextCol === exit.col,
+    (target) =>
+      target.nextRow === targetCheese.row && target.nextCol === targetCheese.col,
   );
 }
 
 function fishingCanFinishLevel() {
-  return Boolean(getFishingCatchTarget());
+  return remainingCheeseTargets().length === 1 && Boolean(getFishingCatchTarget());
 }
 
 function rocketCanFinishLevel() {
-  if (!exit) return false;
+  const remaining = remainingCheeseTargets();
+  if (remaining.length !== 1) return false;
+  const targetCheese = remaining[0];
+  if (!isCheeseVisible(targetCheese)) return false;
   return getRocketTargets().some(
-    (target) => target.row === exit.row && target.col === exit.col,
+    (target) => target.row === targetCheese.row && target.col === targetCheese.col,
   );
 }
 
@@ -997,6 +1095,7 @@ function resetPowers() {
   clearPowerTransformation();
   clearCrystalReveal();
   clearTornadoWallAnimation();
+  clearHingedWallAnimation();
   clearHammerWallAnimation();
   clearFishingCatchAnimation();
   clearRocketFlightAnimation();
@@ -1028,6 +1127,7 @@ function clearFishingCatchAnimation() {
   fishingCatchAnimating = false;
   fishingCatchProgress = 0;
   fishingCatchStartedAt = null;
+  activeFishingCatchTarget = null;
   mazeEl.setAttribute("aria-busy", "false");
 }
 
@@ -1035,6 +1135,14 @@ function clearTornadoWallAnimation() {
   if (tornadoWallAnimationFrame !== null) cancelAnimationFrame(tornadoWallAnimationFrame);
   tornadoWallAnimation = null;
   tornadoWallAnimationFrame = null;
+}
+
+function clearHingedWallAnimation() {
+  if (hingedWallAnimationFrame !== null) cancelAnimationFrame(hingedWallAnimationFrame);
+  hingedWallAnimation = null;
+  hingedWallAnimationFrame = null;
+  for (const wall of hingedWalls) wall.moving = false;
+  mazeEl.setAttribute("aria-busy", "false");
 }
 
 function clearHammerWallAnimation() {
@@ -1060,6 +1168,7 @@ function clearCheeseEatingAnimation() {
   cheeseEatingProgress = 0;
   cheeseEatingStartedAt = null;
   cheeseEaten = false;
+  cheeseEatingTarget = null;
 }
 
 function clearMouseDefeatAnimation() {
@@ -1142,8 +1251,7 @@ function beginPowerSelection(powerKey, readyMessage) {
 }
 
 function currentCrystalPath() {
-  if (!exit) return [];
-  return findShortestPathFrom(maze, mouse, exit);
+  return currentObjectiveRoute()?.path ?? [];
 }
 
 function activateCrystalPower() {
@@ -1184,16 +1292,44 @@ function activateCrystalPower() {
 
 function chooseSafeTornadoCandidate() {
   const config = LEVEL_CONFIGS[level - 1];
-  if (!config || !exit) return null;
+  const remaining = remainingCheeseTargets();
+  if (!config || !remaining.length) return null;
   const variantIndices = shuffledVariantIndices().filter(
     (variantIndex) => variantIndex !== activeVariantIndex,
   );
 
   for (const variantIndex of variantIndices) {
     const variant = buildLevelVariant(config, variantIndex);
-    const pathFromMouse = findShortestPathFrom(variant.grid, mouse, exit);
-    if (pathFromMouse.length && pathFromMouse.length - 1 <= movesLeft) {
-      return { grid: variant.grid, pathFromMouse, variantIndex };
+    const route = variant.hingedWalls?.length
+      ? (() => {
+          const solution = solveHingedPuzzle(
+            variant.grid,
+            mouse,
+            variant.hingedWalls,
+            remaining,
+            80,
+          );
+          return solution ? { path: solution.path } : null;
+        })()
+      : rockPositions.length
+      ? (() => {
+          const solution = solveRockPuzzle(
+            variant.grid,
+            mouse,
+            rockPositions,
+            remaining,
+            80,
+          );
+          return solution ? { path: solution.path } : null;
+        })()
+      : bestCheeseRoute(variant.grid, mouse, remaining);
+    if (route?.path.length && route.path.length - 1 <= movesLeft) {
+      return {
+        grid: variant.grid,
+        pathFromMouse: route.path,
+        variantIndex,
+        hingedWalls: variant.hingedWalls ?? [],
+      };
     }
   }
   return null;
@@ -1384,6 +1520,58 @@ function carveMaze(grid, rng, start) {
   }
 }
 
+function carveKruskalMaze(grid, rng) {
+  const cellCount = ROWS * COLS;
+  const parents = Array.from({ length: cellCount }, (_, index) => index);
+  const ranks = Array(cellCount).fill(0);
+  const edges = [];
+
+  const find = (index) => {
+    let root = index;
+    while (parents[root] !== root) root = parents[root];
+    while (parents[index] !== index) {
+      const next = parents[index];
+      parents[index] = root;
+      index = next;
+    }
+    return root;
+  };
+
+  const union = (first, second) => {
+    const firstRoot = find(first);
+    const secondRoot = find(second);
+    if (firstRoot === secondRoot) return false;
+    if (ranks[firstRoot] < ranks[secondRoot]) parents[firstRoot] = secondRoot;
+    else if (ranks[firstRoot] > ranks[secondRoot]) parents[secondRoot] = firstRoot;
+    else {
+      parents[secondRoot] = firstRoot;
+      ranks[firstRoot] += 1;
+    }
+    return true;
+  };
+
+  for (let row = 0; row < ROWS; row += 1) {
+    for (let col = 0; col < COLS; col += 1) {
+      if (col + 1 < COLS) edges.push({ row, col, dir: DIRS[1] });
+      if (row + 1 < ROWS) edges.push({ row, col, dir: DIRS[2] });
+    }
+  }
+
+  for (const edge of shuffle(edges, rng)) {
+    const nextRow = edge.row + edge.dir.row;
+    const nextCol = edge.col + edge.dir.col;
+    const currentIndex = edge.row * COLS + edge.col;
+    const nextIndex = nextRow * COLS + nextCol;
+    if (!union(currentIndex, nextIndex)) continue;
+    grid[edge.row][edge.col].walls[edge.dir.wall] = false;
+    grid[nextRow][nextCol].walls[edge.dir.opposite] = false;
+  }
+
+  for (const row of grid) {
+    for (const cell of row) cell.visited = true;
+  }
+}
+
 function addLoops(grid, count, rng) {
   let opened = 0;
   let attempts = 0;
@@ -1442,12 +1630,417 @@ function findShortestPath(grid, target, blockedEdges = new Set(), start = levelS
   return findShortestPathFrom(grid, start, target, blockedEdges);
 }
 
+function joinPaths(firstPath, secondPath) {
+  if (!firstPath.length || !secondPath.length) return [];
+  return [...firstPath, ...secondPath.slice(1)];
+}
+
+function bestCheeseRoute(grid, start, targets) {
+  if (!targets.length) return null;
+  if (targets.length === 1) {
+    const path = findShortestPathFrom(grid, start, targets[0]);
+    return path.length ? { path, order: [{ ...targets[0] }] } : null;
+  }
+
+  let best = null;
+  for (let firstIndex = 0; firstIndex < targets.length; firstIndex += 1) {
+    const first = targets[firstIndex];
+    const remaining = targets.filter((_, index) => index !== firstIndex);
+    const firstPath = findShortestPathFrom(grid, start, first);
+    if (!firstPath.length) continue;
+    const rest = bestCheeseRoute(grid, first, remaining);
+    if (!rest) continue;
+    const path = joinPaths(firstPath, rest.path);
+    if (!best || path.length < best.path.length) {
+      best = { path, order: [{ ...first }, ...rest.order] };
+    }
+  }
+  return best;
+}
+
+function remainingCheeseTargets() {
+  const targets =
+    exit && !cheeseTargets.some((target) => keyOf(target) === keyOf(exit))
+      ? [exit]
+      : cheeseTargets;
+  return targets.filter((target) => !collectedCheeseKeys.has(keyOf(target)));
+}
+
+function rockAt(cell, positions = rockPositions) {
+  if (!cell) return null;
+  return (
+    positions.find((rock) => rock.row === cell.row && rock.col === cell.col) ?? null
+  );
+}
+
+function isCheeseVisible(target, positions = rockPositions) {
+  return !hiddenCheeseKeys.has(keyOf(target)) || !rockAt(target, positions);
+}
+
+function cheeseAt(cell) {
+  if (!cell) return null;
+  return (
+    remainingCheeseTargets().find(
+      (target) =>
+        target.row === cell.row &&
+        target.col === cell.col &&
+        isCheeseVisible(target),
+    ) ?? null
+  );
+}
+
+function solveRockPuzzle(grid, start, rocks, targets, maxDistance = 64) {
+  const targetIndexByKey = new Map(targets.map((target, index) => [keyOf(target), index]));
+  const allCollectedMask = (1 << targets.length) - 1;
+  const normalizedRocks = rocks.map((rock) => ({ row: rock.row, col: rock.col }));
+  const initialMask = targetIndexByKey.has(keyOf(start)) && !rockAt(start, normalizedRocks)
+    ? 1 << targetIndexByKey.get(keyOf(start))
+    : 0;
+  const queue = [
+    {
+      mouse: { ...start },
+      rocks: normalizedRocks,
+      collectedMask: initialMask,
+      path: [{ ...start }],
+      actions: [],
+      pushes: 0,
+    },
+  ];
+  const stateKey = (state) => {
+    const rockKeys = state.rocks.map(keyOf).sort().join(";");
+    return `${keyOf(state.mouse)}|${rockKeys}|${state.collectedMask}`;
+  };
+  const seen = new Set([stateKey(queue[0])]);
+
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+    const state = queue[queueIndex];
+    if (state.collectedMask === allCollectedMask) return state;
+    if (state.actions.length >= maxDistance) continue;
+
+    for (const dir of DIRS) {
+      const currentCell = grid[state.mouse.row][state.mouse.col];
+      if (currentCell.walls[dir.wall]) continue;
+      const next = { row: state.mouse.row + dir.row, col: state.mouse.col + dir.col };
+      if (!isInside(next.row, next.col)) continue;
+
+      const nextRocks = state.rocks.map((rock) => ({ ...rock }));
+      const pushedRockIndex = nextRocks.findIndex(
+        (rock) => rock.row === next.row && rock.col === next.col,
+      );
+      let rockFrom = null;
+      let rockTo = null;
+      if (pushedRockIndex >= 0) {
+        const rockCell = grid[next.row][next.col];
+        rockTo = { row: next.row + dir.row, col: next.col + dir.col };
+        if (
+          !isInside(rockTo.row, rockTo.col) ||
+          rockCell.walls[dir.wall] ||
+          rockAt(rockTo, nextRocks)
+        ) {
+          continue;
+        }
+        rockFrom = { ...nextRocks[pushedRockIndex] };
+        nextRocks[pushedRockIndex] = { ...rockTo };
+      }
+
+      let collectedMask = state.collectedMask;
+      const targetIndex = targetIndexByKey.get(keyOf(next));
+      if (targetIndex !== undefined && !rockAt(next, nextRocks)) {
+        collectedMask |= 1 << targetIndex;
+      }
+      const action = {
+        direction: dir.key,
+        mouse: { ...next },
+        rockFrom,
+        rockTo,
+      };
+      const nextState = {
+        mouse: next,
+        rocks: nextRocks,
+        collectedMask,
+        path: [...state.path, { ...next }],
+        actions: [...state.actions, action],
+        pushes: state.pushes + (pushedRockIndex >= 0 ? 1 : 0),
+      };
+      const key = stateKey(nextState);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      queue.push(nextState);
+    }
+  }
+
+  return null;
+}
+
+function currentObjectiveRoute(grid = maze, start = mouse, rocks = rockPositions) {
+  const targets = remainingCheeseTargets();
+  if (!targets.length) return null;
+  const pendingHingedWalls = hingedWalls.filter(
+    (wall) => !wall.activated && !wall.destroyed && !wall.moving,
+  );
+  if (pendingHingedWalls.length) {
+    const solution = solveHingedPuzzle(grid, start, pendingHingedWalls, targets, 80);
+    return solution ? { path: solution.path, order: targets, solution } : null;
+  }
+  if (!rocks.length) return bestCheeseRoute(grid, start, targets);
+  const solution = solveRockPuzzle(grid, start, rocks, targets, 80);
+  return solution ? { path: solution.path, order: targets, solution } : null;
+}
+
+function currentCheeseRoute(grid = maze, start = mouse) {
+  return bestCheeseRoute(grid, start, remainingCheeseTargets());
+}
+
+function syncActiveExit() {
+  const route = currentCheeseRoute();
+  exit = route?.order[0] ? { ...route.order[0] } : null;
+  return route;
+}
+
 function keyOf(cell) {
   return `${cell.row},${cell.col}`;
 }
 
 function edgeKey(a, b) {
   return [keyOf(a), keyOf(b)].sort().join("|");
+}
+
+function cloneMazeGrid(grid) {
+  return grid.map((row) =>
+    row.map((cell) => ({
+      ...cell,
+      walls: { ...cell.walls },
+    })),
+  );
+}
+
+function segmentKey(segment) {
+  return `${segment.orientation}:${segment.line}:${segment.start}`;
+}
+
+function edgeSegmentBetween(first, second) {
+  if (first.row !== second.row) {
+    return {
+      orientation: "horizontal",
+      line: Math.max(first.row, second.row),
+      start: first.col,
+      length: 1,
+    };
+  }
+  return {
+    orientation: "vertical",
+    line: Math.max(first.col, second.col),
+    start: first.row,
+    length: 1,
+  };
+}
+
+function segmentHasWall(grid, segment) {
+  if (segment.orientation === "horizontal") {
+    return Boolean(grid[segment.line]?.[segment.start]?.walls.top);
+  }
+  return Boolean(grid[segment.start]?.[segment.line]?.walls.left);
+}
+
+function setSegmentWall(grid, segment, present) {
+  if (segment.orientation === "horizontal") {
+    const lower = grid[segment.line]?.[segment.start];
+    const upper = grid[segment.line - 1]?.[segment.start];
+    if (!lower || !upper) return false;
+    lower.walls.top = present;
+    upper.walls.bottom = present;
+    return true;
+  }
+
+  const right = grid[segment.start]?.[segment.line];
+  const left = grid[segment.start]?.[segment.line - 1];
+  if (!right || !left) return false;
+  right.walls.left = present;
+  left.walls.right = present;
+  return true;
+}
+
+function segmentEndpoints(segment) {
+  if (segment.orientation === "horizontal") {
+    return [
+      { row: segment.line, col: segment.start },
+      { row: segment.line, col: segment.start + 1 },
+    ];
+  }
+  return [
+    { row: segment.start, col: segment.line },
+    { row: segment.start + 1, col: segment.line },
+  ];
+}
+
+function cellsSeparatedBySegment(segment) {
+  if (segment.orientation === "horizontal") {
+    return [
+      { row: segment.line - 1, col: segment.start },
+      { row: segment.line, col: segment.start },
+    ];
+  }
+  return [
+    { row: segment.start, col: segment.line - 1 },
+    { row: segment.start, col: segment.line },
+  ];
+}
+
+function perpendicularHingeSources(destination) {
+  const [first, second] = segmentEndpoints(destination);
+  const candidates = [];
+  for (const hinge of [first, second]) {
+    if (destination.orientation === "horizontal") {
+      for (const start of [hinge.row - 1, hinge.row]) {
+        if (hinge.col <= 0 || hinge.col >= COLS || start < 0 || start >= ROWS) continue;
+        candidates.push({
+          source: { orientation: "vertical", line: hinge.col, start, length: 1 },
+          hinge: { ...hinge },
+        });
+      }
+    } else {
+      for (const start of [hinge.col - 1, hinge.col]) {
+        if (hinge.row <= 0 || hinge.row >= ROWS || start < 0 || start >= COLS) continue;
+        candidates.push({
+          source: { orientation: "horizontal", line: hinge.row, start, length: 1 },
+          hinge: { ...hinge },
+        });
+      }
+    }
+  }
+  return candidates;
+}
+
+function otherSegmentEndpoint(segment, hinge) {
+  return segmentEndpoints(segment).find(
+    (point) => point.row !== hinge.row || point.col !== hinge.col,
+  );
+}
+
+function pointToGridSegmentDistance(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (!lengthSquared) return Math.hypot(point.x - start.x, point.y - start.y);
+  const amount = clamp(
+    ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared,
+    0,
+    1,
+  );
+  return Math.hypot(
+    point.x - (start.x + dx * amount),
+    point.y - (start.y + dy * amount),
+  );
+}
+
+function hingedSweepClearsCell(source, destination, hinge, cell) {
+  const sourceOther = otherSegmentEndpoint(source, hinge);
+  const destinationOther = otherSegmentEndpoint(destination, hinge);
+  if (!sourceOther || !destinationOther) return false;
+  const hingePoint = { x: hinge.col, y: hinge.row };
+  const cellCenter = { x: cell.col + 0.5, y: cell.row + 0.5 };
+  const sourceAngle = Math.atan2(
+    sourceOther.row - hinge.row,
+    sourceOther.col - hinge.col,
+  );
+  const destinationAngle = Math.atan2(
+    destinationOther.row - hinge.row,
+    destinationOther.col - hinge.col,
+  );
+  let angleDelta = destinationAngle - sourceAngle;
+  while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+  while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+
+  for (let step = 0; step <= 20; step += 1) {
+    const angle = sourceAngle + angleDelta * (step / 20);
+    const end = {
+      x: hingePoint.x + Math.cos(angle),
+      y: hingePoint.y + Math.sin(angle),
+    };
+    if (pointToGridSegmentDistance(cellCenter, hingePoint, end) < 0.46) return false;
+  }
+  return true;
+}
+
+function wallPresentForHingedState(grid, segment, walls, activatedMask) {
+  const key = segmentKey(segment);
+  for (let index = 0; index < walls.length; index += 1) {
+    if ((activatedMask & (1 << index)) === 0) continue;
+    if (segmentKey(walls[index].source) === key) return false;
+    if (segmentKey(walls[index].destination) === key) return true;
+  }
+  return segmentHasWall(grid, segment);
+}
+
+function solveHingedPuzzle(grid, start, walls, targets, maxMoves = 80) {
+  const targetIndexByKey = new Map(targets.map((target, index) => [keyOf(target), index]));
+  const allCollectedMask = (1 << targets.length) - 1;
+  const initialCollectedMask = targetIndexByKey.has(keyOf(start))
+    ? 1 << targetIndexByKey.get(keyOf(start))
+    : 0;
+  const queue = [
+    {
+      mouse: { ...start },
+      activatedMask: 0,
+      collectedMask: initialCollectedMask,
+      moves: 0,
+      path: [{ ...start }],
+      actions: [],
+    },
+  ];
+  const bestCosts = new Map([[`${keyOf(start)}|0|${initialCollectedMask}`, 0]]);
+
+  while (queue.length) {
+    const state = queue.shift();
+    if (state.collectedMask === allCollectedMask) {
+      return {
+        ...state,
+        triggers: state.actions.reduce(
+          (total, action) => total + (action.hingedWallIds?.length ?? 0),
+          0,
+        ),
+      };
+    }
+    if (state.moves >= maxMoves) continue;
+
+    for (const dir of DIRS) {
+      const next = { row: state.mouse.row + dir.row, col: state.mouse.col + dir.col };
+      if (!isInside(next.row, next.col)) continue;
+      const segment = edgeSegmentBetween(state.mouse, next);
+      if (wallPresentForHingedState(grid, segment, walls, state.activatedMask)) continue;
+      let activatedMask = state.activatedMask;
+      const hingedWallIds = [];
+      walls.forEach((wall, index) => {
+        if (
+          (activatedMask & (1 << index)) === 0 &&
+          keyOf(wall.triggerFrom) === keyOf(next)
+        ) {
+          activatedMask |= 1 << index;
+          hingedWallIds.push(wall.id);
+        }
+      });
+      let collectedMask = state.collectedMask;
+      const targetIndex = targetIndexByKey.get(keyOf(next));
+      if (targetIndex !== undefined) collectedMask |= 1 << targetIndex;
+      const moves = state.moves + 1;
+      const key = `${keyOf(next)}|${activatedMask}|${collectedMask}`;
+      if ((bestCosts.get(key) ?? Number.POSITIVE_INFINITY) <= moves) continue;
+      bestCosts.set(key, moves);
+      queue.push({
+        mouse: next,
+        activatedMask,
+        collectedMask,
+        moves,
+        path: [...state.path, { ...next }],
+        actions: [
+          ...state.actions,
+          { direction: dir.key, mouse: { ...next }, hingedWallIds },
+        ],
+      });
+    }
+  }
+
+  return null;
 }
 
 function countTurns(path) {
@@ -1542,7 +2135,166 @@ function moveBudgetForVariant(path, alternatePath) {
   return Math.max(shortestDistance + recoveryMargin, alternateDistance);
 }
 
+function analyzeDeceptiveBranches(grid, path, target) {
+  const pathKeys = new Set(path.map(keyOf));
+  let solutionJunctions = 0;
+  let falseBranches = 0;
+  let deepFalseBranches = 0;
+  let falseBranchCells = 0;
+  let maxFalseBranchDepth = 0;
+  let earlyDeepBranches = 0;
+  let goalFacingBranches = 0;
+  let misleadingBranches = 0;
+  let misleadingBranchCells = 0;
+  let nearGoalTraps = 0;
+
+  for (let pathIndex = 0; pathIndex < path.length; pathIndex += 1) {
+    const pathCell = path[pathIndex];
+    const branchEntries = neighbors(grid, grid[pathCell.row][pathCell.col]).filter(
+      (neighbor) => !pathKeys.has(keyOf(neighbor)),
+    );
+    if (branchEntries.length) solutionJunctions += 1;
+
+    for (const entry of branchEntries) {
+      const queue = [{ row: entry.row, col: entry.col, depth: 1 }];
+      const seen = new Set([keyOf(pathCell), keyOf(entry)]);
+      let branchCells = 0;
+      let branchDepth = 0;
+      let branchGoalDistance = Number.POSITIVE_INFINITY;
+
+      while (queue.length) {
+        const current = queue.shift();
+        branchCells += 1;
+        branchDepth = Math.max(branchDepth, current.depth);
+        branchGoalDistance = Math.min(
+          branchGoalDistance,
+          Math.abs(current.row - target.row) + Math.abs(current.col - target.col),
+        );
+        for (const next of neighbors(grid, grid[current.row][current.col])) {
+          const nextKey = keyOf(next);
+          if (pathKeys.has(nextKey) || seen.has(nextKey)) continue;
+          seen.add(nextKey);
+          queue.push({ row: next.row, col: next.col, depth: current.depth + 1 });
+        }
+      }
+
+      falseBranches += 1;
+      falseBranchCells += branchCells;
+      maxFalseBranchDepth = Math.max(maxFalseBranchDepth, branchDepth);
+      if (branchDepth >= 4) {
+        deepFalseBranches += 1;
+        if (pathIndex < path.length * 0.65) earlyDeepBranches += 1;
+      }
+
+      const pathDistance = Math.abs(pathCell.row - target.row) + Math.abs(pathCell.col - target.col);
+      const entryDistance = Math.abs(entry.row - target.row) + Math.abs(entry.col - target.col);
+      if (branchDepth >= 3 && entryDistance < pathDistance) goalFacingBranches += 1;
+
+      const correctNext = path[pathIndex + 1];
+      const correctDistance = correctNext
+        ? Math.abs(correctNext.row - target.row) + Math.abs(correctNext.col - target.col)
+        : -1;
+      if (branchDepth >= 2 && correctNext && entryDistance <= correctDistance) {
+        misleadingBranches += 1;
+        misleadingBranchCells += branchCells;
+      }
+      if (branchDepth >= 3 && branchGoalDistance <= 1) nearGoalTraps += 1;
+    }
+  }
+
+  const greedyMoves = simulateGreedyMazeSolver(grid, path[0], target);
+  const greedyPenalty = greedyMoves - (path.length - 1);
+  const startGoalManhattan =
+    Math.abs(path[0].row - target.row) + Math.abs(path[0].col - target.col);
+
+  return {
+    solutionJunctions,
+    falseBranches,
+    deepFalseBranches,
+    falseBranchCells,
+    maxFalseBranchDepth,
+    earlyDeepBranches,
+    goalFacingBranches,
+    misleadingBranches,
+    misleadingBranchCells,
+    nearGoalTraps,
+    greedyMoves,
+    greedyPenalty,
+    startGoalManhattan,
+  };
+}
+
+function simulateGreedyMazeSolver(grid, start, target) {
+  const visited = new Set([keyOf(start)]);
+  const stack = [{ cell: { ...start }, options: null }];
+  let moves = 0;
+
+  while (stack.length) {
+    const frame = stack[stack.length - 1];
+    if (frame.cell.row === target.row && frame.cell.col === target.col) return moves;
+
+    if (frame.options === null) {
+      frame.options = neighbors(grid, grid[frame.cell.row][frame.cell.col])
+        .filter((neighbor) => !visited.has(keyOf(neighbor)))
+        .sort((first, second) => {
+          const firstDistance = Math.abs(first.row - target.row) + Math.abs(first.col - target.col);
+          const secondDistance = Math.abs(second.row - target.row) + Math.abs(second.col - target.col);
+          if (firstDistance !== secondDistance) return firstDistance - secondDistance;
+          return keyOf(first).localeCompare(keyOf(second));
+        });
+    }
+
+    const next = frame.options.shift();
+    if (next) {
+      visited.add(keyOf(next));
+      stack.push({ cell: { row: next.row, col: next.col }, options: null });
+      moves += 1;
+      continue;
+    }
+
+    stack.pop();
+    if (stack.length) moves += 1;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+function extremeDifficultyScore(profile) {
+  return (
+    profile.solutionJunctions * 16 +
+    profile.falseBranches * 10 +
+    profile.deepFalseBranches * 24 +
+    profile.maxFalseBranchDepth * 12 +
+    profile.goalFacingBranches * 30 +
+    profile.misleadingBranches * 55 +
+    profile.misleadingBranchCells * 4 +
+    profile.nearGoalTraps * 90 +
+    Math.min(profile.greedyPenalty, 80) * 5 +
+    Math.max(0, 12 - profile.startGoalManhattan) * 18
+  );
+}
+
+function passesExtremeDifficulty(config, profile) {
+  if (!config.minSolutionJunctions) return true;
+  return (
+    profile.solutionJunctions >= config.minSolutionJunctions &&
+    profile.falseBranches >= config.minFalseBranches &&
+    profile.deepFalseBranches >= config.minDeepFalseBranches &&
+    profile.falseBranchCells >= config.minFalseBranchCells &&
+    profile.maxFalseBranchDepth >= config.minFalseBranchDepth &&
+    profile.earlyDeepBranches >= config.minEarlyDeepBranches &&
+    profile.goalFacingBranches >= config.minGoalFacingBranches &&
+    profile.misleadingBranches >= config.minMisleadingBranches &&
+    profile.misleadingBranchCells >= config.minMisleadingBranchCells &&
+    profile.nearGoalTraps >= config.minNearGoalTraps &&
+    profile.greedyPenalty >= config.minGreedyPenalty &&
+    profile.startGoalManhattan <= config.maxGoalManhattan
+  );
+}
+
 function chooseExitAndValidate(grid, config, variantIndex, start, rng) {
+  const singleRoute = config.singleRoute === true;
+  let hardestResult = null;
   const exits = shuffle(
     Array.from({ length: ROWS * COLS }, (_, index) => ({
       row: Math.floor(index / COLS),
@@ -1563,24 +2315,374 @@ function chooseExitAndValidate(grid, config, variantIndex, start, rng) {
     const turns = countTurns(path);
     const deadEnds = countDeadEnds(grid);
     const routes = countRoutesToExit(grid, candidate, 3, start);
-    const alternatePath = findMeaningfulAlternative(grid, candidate, path, config.moveLimit);
+    const alternatePath = singleRoute
+      ? null
+      : findMeaningfulAlternative(grid, candidate, path, config.moveLimit);
+    const difficultyProfile = config.minSolutionJunctions
+      ? analyzeDeceptiveBranches(grid, path, candidate)
+      : null;
+    const routeRulesPass = singleRoute
+      ? routes === 1
+      : routes >= 2 && Boolean(alternatePath);
 
     if (
       distance >= config.minPath &&
       distance <= config.maxPath &&
-      turns >= 4 &&
-      deadEnds >= 5 &&
-      deadEnds <= 38 &&
-      routes >= 2 &&
-      alternatePath
+      turns >= (config.minTurns ?? 4) &&
+      deadEnds >= (config.minDeadEnds ?? 5) &&
+      deadEnds <= (config.maxDeadEnds ?? 38) &&
+      routeRulesPass &&
+      passesExtremeDifficulty(config, difficultyProfile)
     ) {
-      return {
+      const result = {
         exit: candidate,
         path,
         alternatePath,
-        moveLimit: moveBudgetForVariant(path, alternatePath),
+        difficultyProfile,
+        moveLimit: singleRoute
+          ? distance + (config.moveMargin ?? 1)
+          : moveBudgetForVariant(path, alternatePath),
+      };
+      if (!singleRoute) return result;
+      const score = extremeDifficultyScore(difficultyProfile);
+      if (!hardestResult || score > hardestResult.difficultyScore) {
+        hardestResult = { ...result, difficultyScore: score };
+      }
+    }
+  }
+
+  return hardestResult;
+}
+
+function chooseCheesePairAndValidate(grid, config, variantIndex, start, rng) {
+  const candidates = shuffle(
+    Array.from({ length: ROWS * COLS }, (_, index) => ({
+      row: Math.floor(index / COLS),
+      col: index % COLS,
+    })).filter(
+      (candidate) =>
+        keyOf(candidate) !== keyOf(start) &&
+        (candidate.row * 3 + candidate.col * 2) % VARIANTS_PER_LEVEL !== variantIndex,
+    ),
+    rng,
+  );
+  const pathsFromStart = new Map(
+    candidates.map((candidate) => [
+      keyOf(candidate),
+      findShortestPathFrom(grid, start, candidate),
+    ]),
+  );
+
+  for (let firstIndex = 0; firstIndex < candidates.length; firstIndex += 1) {
+    const first = candidates[firstIndex];
+    const firstPath = pathsFromStart.get(keyOf(first));
+    if (!firstPath?.length) continue;
+
+    for (let secondIndex = firstIndex + 1; secondIndex < candidates.length; secondIndex += 1) {
+      const second = candidates[secondIndex];
+      const secondPath = pathsFromStart.get(keyOf(second));
+      if (!secondPath?.length) continue;
+      const betweenPath = findShortestPathFrom(grid, first, second);
+      if (!betweenPath.length) continue;
+
+      const firstDistance = firstPath.length - 1;
+      const secondDistance = secondPath.length - 1;
+      const betweenDistance = betweenPath.length - 1;
+      const firstThenSecond = firstDistance + betweenDistance;
+      const secondThenFirst = secondDistance + betweenDistance;
+      const optimalDistance = Math.min(firstThenSecond, secondThenFirst);
+      const orderPenalty = Math.abs(firstDistance - secondDistance);
+      const separation =
+        Math.abs(first.row - second.row) + Math.abs(first.col - second.col);
+      if (
+        optimalDistance < config.minPath ||
+        optimalDistance > config.maxPath ||
+        orderPenalty < config.minOrderPenalty ||
+        orderPenalty > config.maxOrderPenalty ||
+        betweenDistance < config.minCheeseDistance ||
+        separation < 5
+      ) {
+        continue;
+      }
+
+      const optimalFirst = firstThenSecond <= secondThenFirst ? first : second;
+      const optimalSecond = optimalFirst === first ? second : first;
+      const pathToFirst = pathsFromStart.get(keyOf(optimalFirst));
+      const pathToSecond = findShortestPathFrom(grid, optimalFirst, optimalSecond);
+      const path = joinPaths(pathToFirst, pathToSecond);
+      if (
+        countTurns(path) < config.minTurns ||
+        countDeadEnds(grid) < config.minDeadEnds
+      ) {
+        continue;
+      }
+
+      const alternateFirst = optimalSecond;
+      const alternateSecond = optimalFirst;
+      const alternatePath = joinPaths(
+        pathsFromStart.get(keyOf(alternateFirst)),
+        findShortestPathFrom(grid, alternateFirst, alternateSecond),
+      );
+      return {
+        exit: { ...optimalFirst },
+        exits: [{ ...optimalFirst }, { ...optimalSecond }],
+        path,
+        alternatePath,
+        difficultyProfile: null,
+        orderPenalty,
+        moveLimit: optimalDistance + config.moveMargin,
       };
     }
+  }
+
+  return null;
+}
+
+function findPathAvoidingCells(grid, start, target, blockedCells) {
+  const queue = [{ cell: { ...start }, path: [{ ...start }] }];
+  const seen = new Set([keyOf(start)]);
+  while (queue.length) {
+    const current = queue.shift();
+    if (keyOf(current.cell) === keyOf(target)) return current.path;
+    for (const next of neighbors(grid, grid[current.cell.row][current.cell.col])) {
+      const nextKey = keyOf(next);
+      if (blockedCells.has(nextKey) || seen.has(nextKey)) continue;
+      seen.add(nextKey);
+      queue.push({
+        cell: { row: next.row, col: next.col },
+        path: [...current.path, { row: next.row, col: next.col }],
+      });
+    }
+  }
+  return [];
+}
+
+function rockResult(config, cheese, rocks, solution, hidden = false, alternatePath = null) {
+  const distance = solution.path.length - 1;
+  return {
+    exit: { ...cheese },
+    exits: [{ ...cheese }],
+    rocks: rocks.map((rock, index) => ({ id: index, row: rock.row, col: rock.col })),
+    hiddenCheeseKeys: hidden ? [keyOf(cheese)] : [],
+    path: solution.path,
+    alternatePath,
+    difficultyProfile: null,
+    rockSolution: solution,
+    moveLimit: distance + config.moveMargin,
+  };
+}
+
+function chooseRockPuzzleAndValidate(grid, config, variantIndex, start, rng) {
+  if (countDeadEnds(grid) < config.minDeadEnds) return null;
+  const candidates = shuffle(
+    Array.from({ length: ROWS * COLS }, (_, index) => ({
+      row: Math.floor(index / COLS),
+      col: index % COLS,
+    })).filter(
+      (candidate) =>
+        keyOf(candidate) !== keyOf(start) &&
+        (candidate.row * 3 + candidate.col * 2) % VARIANTS_PER_LEVEL === variantIndex,
+    ),
+    rng,
+  );
+
+  if (config.rockMode === "blocker") {
+    for (const cheese of candidates) {
+      const directPath = findShortestPathFrom(grid, start, cheese);
+      if (directPath.length < 9) continue;
+      for (const rockCell of shuffle(directPath.slice(3, -3), rng)) {
+        const rocks = [{ row: rockCell.row, col: rockCell.col }];
+        const solution = solveRockPuzzle(grid, start, rocks, [cheese], config.maxPath);
+        if (!solution || solution.pushes < 1) continue;
+        const distance = solution.path.length - 1;
+        const detour = findPathAvoidingCells(grid, start, cheese, new Set([keyOf(rockCell)]));
+        if (
+          distance < config.minPath ||
+          distance > config.maxPath ||
+          countTurns(solution.path) < config.minTurns ||
+          (detour.length && detour.length - solution.path.length < config.minDetourPenalty)
+        ) {
+          continue;
+        }
+        return rockResult(config, cheese, rocks, solution, false, detour.length ? detour : null);
+      }
+    }
+    return null;
+  }
+
+  for (const cheese of candidates) {
+    const targetRock = { row: cheese.row, col: cheese.col };
+    let rocks = [targetRock];
+    let solution = solveRockPuzzle(grid, start, rocks, [cheese], config.maxPath);
+    if (!solution || solution.pushes < 1) continue;
+
+    if (config.rockMode === "search") {
+      const solutionCells = new Set(solution.path.map(keyOf));
+      const decoyCandidates = shuffle(
+        Array.from({ length: ROWS * COLS }, (_, index) => ({
+          row: Math.floor(index / COLS),
+          col: index % COLS,
+        })).filter((candidate) => {
+          if (keyOf(candidate) === keyOf(start) || solutionCells.has(keyOf(candidate))) return false;
+          return neighbors(grid, grid[candidate.row][candidate.col]).length >= 2;
+        }),
+        rng,
+      );
+      rocks = [targetRock, ...decoyCandidates.slice(0, config.rockCount - 1)];
+      if (rocks.length !== config.rockCount) continue;
+      solution = solveRockPuzzle(grid, start, rocks, [cheese], config.maxPath);
+      if (!solution || solution.pushes < 1) continue;
+    }
+
+    const distance = solution.path.length - 1;
+    if (
+      distance < config.minPath ||
+      distance > config.maxPath ||
+      countTurns(solution.path) < config.minTurns
+    ) {
+      continue;
+    }
+    return rockResult(config, cheese, rocks, solution, true);
+  }
+
+  return null;
+}
+
+function chooseHingedWallPuzzleAndValidate(grid, config, variantIndex, start, rng) {
+  if (countDeadEnds(grid) < config.minDeadEnds) return null;
+  const candidates = shuffle(
+    Array.from({ length: ROWS * COLS }, (_, index) => ({
+      row: Math.floor(index / COLS),
+      col: index % COLS,
+    })).filter(
+      (candidate) =>
+        keyOf(candidate) !== keyOf(start) &&
+        (candidate.row * 3 + candidate.col * 2) % VARIANTS_PER_LEVEL === variantIndex,
+    ),
+    rng,
+  );
+
+  for (const cheese of candidates) {
+    const initialPath = findShortestPathFrom(grid, start, cheese);
+    if (initialPath.length < 8) continue;
+
+    const transformedGrid = cloneMazeGrid(grid);
+    const hinged = [];
+    const usedSegments = new Set();
+    const usedTriggerCells = new Set();
+    const combinedPath = [{ ...start }];
+    let currentStart = { ...start };
+    let totalDetourPenalty = 0;
+    let failed = false;
+
+    for (let wallIndex = 0; wallIndex < config.hingedWallCount; wallIndex += 1) {
+      const route = findShortestPathFrom(transformedGrid, currentStart, cheese);
+      if (route.length < 6) {
+        failed = true;
+        break;
+      }
+
+      const edgeIndices = shuffle(
+        Array.from({ length: Math.max(0, route.length - 4) }, (_, index) => index + 2),
+        rng,
+      );
+      let selected = null;
+
+      for (const edgeIndex of edgeIndices) {
+        const triggerFrom = route[edgeIndex];
+        const triggerTo = route[edgeIndex + 1];
+        const destination = edgeSegmentBetween(triggerFrom, triggerTo);
+        if (
+          usedSegments.has(segmentKey(destination)) ||
+          usedTriggerCells.has(keyOf(triggerFrom))
+        ) {
+          continue;
+        }
+
+        const sources = shuffle(perpendicularHingeSources(destination), rng).filter(
+          ({ source }) =>
+            segmentHasWall(transformedGrid, source) &&
+            !usedSegments.has(segmentKey(source)),
+        );
+
+        for (const { source, hinge } of sources) {
+          if (!hingedSweepClearsCell(source, destination, hinge, triggerFrom)) continue;
+          const nextGrid = cloneMazeGrid(transformedGrid);
+          setSegmentWall(nextGrid, source, false);
+          setSegmentWall(nextGrid, destination, true);
+          const detour = findShortestPathFrom(nextGrid, triggerFrom, cheese);
+          if (!detour.length) continue;
+          const originalRemainingDistance = route.length - 1 - edgeIndex;
+          const detourPenalty = detour.length - 1 - originalRemainingDistance;
+          if (detourPenalty < config.minHingedDetour) continue;
+          selected = {
+            source,
+            destination,
+            hinge,
+            triggerFrom: { ...triggerFrom },
+            routePrefix: route.slice(0, edgeIndex + 1),
+            nextGrid,
+            detourPenalty,
+          };
+          break;
+        }
+        if (selected) break;
+      }
+
+      if (!selected) {
+        failed = true;
+        break;
+      }
+
+      combinedPath.push(...selected.routePrefix.slice(1).map((cell) => ({ ...cell })));
+      hinged.push({
+        id: wallIndex,
+        source: { ...selected.source },
+        destination: { ...selected.destination },
+        hinge: { ...selected.hinge },
+        triggerFrom: { ...selected.triggerFrom },
+      });
+      usedSegments.add(segmentKey(selected.source));
+      usedSegments.add(segmentKey(selected.destination));
+      usedTriggerCells.add(keyOf(selected.triggerFrom));
+      totalDetourPenalty += selected.detourPenalty;
+      currentStart = { ...selected.triggerFrom };
+      for (let row = 0; row < ROWS; row += 1) {
+        for (let col = 0; col < COLS; col += 1) {
+          transformedGrid[row][col].walls = { ...selected.nextGrid[row][col].walls };
+        }
+      }
+    }
+
+    if (failed || hinged.length !== config.hingedWallCount) continue;
+    const finalPath = findShortestPathFrom(transformedGrid, currentStart, cheese);
+    if (!finalPath.length) continue;
+    combinedPath.push(...finalPath.slice(1).map((cell) => ({ ...cell })));
+    const distance = combinedPath.length - 1;
+    if (
+      distance < config.minPath ||
+      distance > config.maxPath ||
+      countTurns(combinedPath) < config.minTurns
+    ) {
+      continue;
+    }
+
+    const solution = solveHingedPuzzle(grid, start, hinged, [cheese], config.maxPath + 8);
+    if (!solution) continue;
+    return {
+      exit: { ...cheese },
+      exits: [{ ...cheese }],
+      hingedWalls: hinged,
+      path: combinedPath,
+      alternatePath: solution.path,
+      difficultyProfile: null,
+      hingedSolution: {
+        path: combinedPath,
+        triggers: hinged.length,
+        detourPenalty: totalDetourPenalty,
+      },
+      moveLimit: distance + config.moveMargin,
+    };
   }
 
   return null;
@@ -1589,21 +2691,26 @@ function chooseExitAndValidate(grid, config, variantIndex, start, rng) {
 function buildLevelVariant(config, variantIndex) {
   const variantSeed = config.seed + variantIndex * VARIANT_SEED_GAP;
   const start = startForVariant(config, variantIndex);
+  const fixedAttempt = config.variantAttempts?.[variantIndex];
+  const attempts = Number.isInteger(fixedAttempt)
+    ? [fixedAttempt]
+    : Array.from({ length: 1400 }, (_, attempt) => attempt);
 
-  for (let attempt = 0; attempt < 1400; attempt += 1) {
+  for (const attempt of attempts) {
     const seed = variantSeed + attempt * 7919;
     const rng = createRng(seed);
     const grid = blankMaze();
-    carveMaze(grid, rng, start);
-    addLoops(grid, 14, rng);
+    if (config.generator === "kruskal") carveKruskalMaze(grid, rng);
+    else carveMaze(grid, rng, start);
+    addLoops(grid, config.loops ?? 14, rng);
 
-    const result = chooseExitAndValidate(
-      grid,
-      config,
-      variantIndex,
-      start,
-      rng,
-    );
+    const result = config.hingedWallCount
+      ? chooseHingedWallPuzzleAndValidate(grid, config, variantIndex, start, rng)
+      : config.rockMode
+        ? chooseRockPuzzleAndValidate(grid, config, variantIndex, start, rng)
+        : config.cheeseCount === 2
+          ? chooseCheesePairAndValidate(grid, config, variantIndex, start, rng)
+          : chooseExitAndValidate(grid, config, variantIndex, start, rng);
     if (result) return { grid, start, ...result, seed, attempt };
   }
 
@@ -1636,7 +2743,19 @@ function loadLevelVariant(config, variantIndex, introMode = "full") {
   const variant = buildLevelVariant(config, variantIndex);
   activeVariantIndex = variantIndex;
   maze = variant.grid;
-  exit = variant.exit;
+  cheeseTargets = (variant.exits ?? [variant.exit]).map((target) => ({ ...target }));
+  collectedCheeseKeys = new Set();
+  initialRocks = (variant.rocks ?? []).map((rock) => ({ ...rock }));
+  rockPositions = initialRocks.map((rock) => ({ ...rock }));
+  hiddenCheeseKeys = new Set(variant.hiddenCheeseKeys ?? []);
+  initialHingedWalls = (variant.hingedWalls ?? []).map((wall) => ({
+    ...wall,
+    source: { ...wall.source },
+    destination: { ...wall.destination },
+    hinge: { ...wall.hinge },
+    triggerFrom: wall.triggerFrom ? { ...wall.triggerFrom } : null,
+  }));
+  exit = { ...variant.exit };
   levelStart = { ...variant.start };
   shortestPath = variant.path;
   moveLimit = variant.moveLimit;
@@ -1648,7 +2767,23 @@ function resetRun(introMode = "full") {
   clearCheeseEatingAnimation();
   clearMouseDefeatAnimation();
   clearLevelIntroAnimation();
+  clearHingedWallAnimation();
   mouse = { ...levelStart };
+  collectedCheeseKeys = new Set();
+  rockPositions = initialRocks.map((rock) => ({ ...rock }));
+  hingedWalls = initialHingedWalls.map((wall) => ({
+    ...wall,
+    source: { ...wall.source },
+    destination: { ...wall.destination },
+    hinge: { ...wall.hinge },
+    triggerFrom: wall.triggerFrom ? { ...wall.triggerFrom } : null,
+    activated: false,
+    destroyed: false,
+    moving: false,
+  }));
+  cheeseEatingTarget = null;
+  activeFishingCatchTarget = null;
+  syncActiveExit();
   mouseFacingDirection = initialFacingForStart(levelStart);
   movesLeft = moveLimit;
   gameOver = false;
@@ -1699,6 +2834,13 @@ function render() {
   levelLabelEl.textContent = campaignComplete ? "Game" : "Level";
   levelTitleEl.textContent = campaignComplete ? "Over" : String(level);
   movesLeftEl.textContent = movesLeft;
+  const collectedCount = collectedCheeseKeys.size;
+  cheeseProgressEl.hidden = cheeseTargets.length < 2 || campaignComplete;
+  cheeseProgressEl.textContent = `${collectedCount}/${cheeseTargets.length}`;
+  cheeseProgressEl.setAttribute(
+    "aria-label",
+    `${collectedCount} of ${cheeseTargets.length} cheeses collected`,
+  );
   updateMoveWarningUI();
   updatePowerUI();
   requestMazeDraw();
@@ -1791,9 +2933,10 @@ function cinematicCameraState(corners, width, height) {
   } else if (fishingCatchAnimating) {
     amount = cameraAnimationEnvelope(fishingCatchProgress, 0.14, 0.18);
     zoom = 1.28;
+    const fishingTarget = activeFishingCatchTarget ?? exit ?? mouse;
     focusCell = {
-      row: (mouse.row + exit.row) / 2,
-      col: (mouse.col + exit.col) / 2,
+      row: (mouse.row + fishingTarget.row) / 2,
+      col: (mouse.col + fishingTarget.col) / 2,
     };
   }
 
@@ -1829,7 +2972,11 @@ function drawMazeBoard(ctx, width, height, geometry = createBoardGeometry(width,
   if (rocketTargeting && !powerTransform) drawRocketTargets(ctx, inner);
   if (fishingTargeting && !powerTransform) drawFishingTargets(ctx, inner);
   if (tornadoWallAnimation) drawTornadoWalls(ctx, inner, width);
-  else drawInteriorWalls(ctx, inner, width);
+  else {
+    drawInteriorWalls(ctx, inner, width);
+    drawHingedWallIndicators(ctx, inner, width);
+    if (hingedWallAnimation) drawHingedWallMovement(ctx, inner, width);
+  }
   if (hammerWallAnimation) drawHammerWallAnimation(ctx, inner, width);
   if (hammerTargeting && !powerTransform && !hammerWallAnimation) {
     drawHammerTargets(ctx, inner, width);
@@ -2131,7 +3278,9 @@ function getRocketTargets() {
       col += 1
     ) {
       const moveDistance = Math.abs(row - mouse.row) + Math.abs(col - mouse.col);
-      if (moveDistance > 0 && moveDistance <= 2) targets.push({ row, col });
+      if (moveDistance > 0 && moveDistance <= 2 && !rockAt({ row, col })) {
+        targets.push({ row, col });
+      }
     }
   }
   return targets;
@@ -2152,10 +3301,11 @@ function getFishingTargets() {
 }
 
 function getFishingCatchTarget() {
-  if (!exit) return null;
+  const targetKeys = new Set(getFishingTargets().map(keyOf));
   return (
-    getFishingTargets().find((target) => target.row === exit.row && target.col === exit.col) ??
-    null
+    remainingCheeseTargets().find(
+      (target) => targetKeys.has(keyOf(target)) && isCheeseVisible(target),
+    ) ?? null
   );
 }
 
@@ -2529,8 +3679,18 @@ function useTornadoPower() {
   const previousGrid = maze;
   const nextGrid = tornadoCandidate.grid;
   maze = tornadoCandidate.grid;
+  hingedWalls = tornadoCandidate.hingedWalls.map((wall) => ({
+    ...wall,
+    source: { ...wall.source },
+    destination: { ...wall.destination },
+    hinge: { ...wall.hinge },
+    activated: false,
+    destroyed: false,
+    moving: false,
+  }));
   activeVariantIndex = tornadoCandidate.variantIndex;
-  shortestPath = findShortestPath(maze, exit);
+  shortestPath = tornadoCandidate.pathFromMouse;
+  syncActiveExit();
   tornadoCandidate = null;
   powerPointerStart = null;
   startTornadoWallAnimation(previousGrid, nextGrid);
@@ -2538,14 +3698,21 @@ function useTornadoPower() {
 
 function finishFishingCatchAnimation() {
   if (!fishingCatchAnimating) return;
+  const caughtTarget = activeFishingCatchTarget ? { ...activeFishingCatchTarget } : null;
   fishingCatchAnimating = false;
   fishingCatchProgress = 0;
   fishingCatchStartedAt = null;
   fishingCatchFrame = null;
+  if (caughtTarget) {
+    const targetIndex = cheeseTargets.findIndex((target) => keyOf(target) === keyOf(caughtTarget));
+    if (targetIndex >= 0) cheeseTargets[targetIndex] = { ...mouse };
+  }
+  activeFishingCatchTarget = null;
   exit = { ...mouse };
+  syncActiveExit();
   setMessage("Fishing rod is changing back...");
   requestMazeDraw();
-  startPowerTransformation("fishing", "out", startCheeseEatingAnimation);
+  startPowerTransformation("fishing", "out", () => startCheeseEatingAnimation(cheeseAt(mouse)));
 }
 
 function animateFishingCatch(timestamp) {
@@ -2585,6 +3752,7 @@ function useFishingPower(target) {
 
   if (!consumePower("fishing")) return;
   fishingTargeting = false;
+  activeFishingCatchTarget = { ...catchTarget };
   fishingCatchAnimating = true;
   fishingCatchProgress = 0;
   fishingCatchStartedAt = null;
@@ -2714,6 +3882,16 @@ function destroyHammerTarget(target) {
   const neighbor = maze[target.nextRow][target.nextCol];
   current.walls[target.dir.wall] = false;
   neighbor.walls[target.dir.opposite] = false;
+  const brokenSegmentKey = segmentKey(target.segment);
+  const hingedWall = hingedWalls.find((wall) => {
+    if (wall.destroyed) return false;
+    const currentSegment = wall.activated ? wall.destination : wall.source;
+    return segmentKey(currentSegment) === brokenSegmentKey;
+  });
+  if (hingedWall) {
+    hingedWall.destroyed = true;
+    hingedWall.moving = false;
+  }
 
   hammerTargeting = false;
   powerPointerStart = null;
@@ -2872,8 +4050,9 @@ function finishRocketFlightAnimation() {
   mouse = target;
   setMessage("Rocket landed and is changing back...");
   startPowerTransformation("rocket", "out", () => {
-    if (mouse.row === exit.row && mouse.col === exit.col) {
-      startCheeseEatingAnimation();
+    const landedCheese = cheeseAt(mouse);
+    if (landedCheese) {
+      startCheeseEatingAnimation(landedCheese);
       return;
     }
     setMovementControlsEnabled(true);
@@ -3002,6 +4181,115 @@ function drawInteriorWallSet(ctx, walls) {
 
 function drawInteriorWalls(ctx, corners, width) {
   drawInteriorWallSet(ctx, wallGeometries(collectWallSegments(), corners, width));
+}
+
+function drawHingeHardware(ctx, point, radius, angle, activeProgress = null) {
+  ctx.save();
+  ctx.translate(point.x, point.y);
+  ctx.rotate(angle + Math.PI / 2);
+
+  if (activeProgress !== null) {
+    const glow = Math.sin(clamp(activeProgress, 0, 1) * Math.PI);
+    ctx.shadowColor = `rgba(218, 199, 133, ${0.5 * glow})`;
+    ctx.shadowBlur = radius * (1.6 + glow * 1.7);
+    ctx.strokeStyle = `rgba(232, 219, 169, ${0.25 + glow * 0.48})`;
+    ctx.lineWidth = Math.max(1.2, radius * 0.22);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * (1.08 + glow * 0.18), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#4d594f";
+  ctx.lineWidth = radius * 1.08;
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.72, 0);
+  ctx.lineTo(radius * 0.72, 0);
+  ctx.stroke();
+
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "#7d8979";
+  ctx.lineWidth = radius * 0.7;
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.66, -radius * 0.05);
+  ctx.lineTo(radius * 0.66, -radius * 0.05);
+  ctx.stroke();
+
+  ctx.fillStyle = "#59665a";
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = Math.max(1, radius * 0.18);
+  ctx.strokeStyle = "#a8b19f";
+  ctx.stroke();
+
+  ctx.fillStyle = "#c8b477";
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 249, 220, 0.82)";
+  ctx.beginPath();
+  ctx.arc(-radius * 0.13, -radius * 0.14, radius * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawHingedWallIndicators(ctx, corners, width) {
+  const radius = clamp(width * 0.009, 3.6, 8);
+  for (const wall of hingedWalls) {
+    if (wall.destroyed || wall.moving) continue;
+    const segment = wall.activated ? wall.destination : wall.source;
+    const geometry = segmentGeometry(segment, corners, width);
+    const hinge = project(corners, wall.hinge.col / COLS, wall.hinge.row / ROWS);
+    const angle = Math.atan2(geometry.p2.y - geometry.p1.y, geometry.p2.x - geometry.p1.x);
+    drawHingeHardware(ctx, hinge, radius, angle);
+  }
+}
+
+function drawHingedWallMovement(ctx, corners, width) {
+  const source = segmentGeometry(hingedWallAnimation.source, corners, width);
+  const destination = segmentGeometry(hingedWallAnimation.destination, corners, width);
+  const hinge = project(
+    corners,
+    hingedWallAnimation.hinge.col / COLS,
+    hingedWallAnimation.hinge.row / ROWS,
+  );
+  const sourceOther =
+    distance(source.p1, hinge) > distance(source.p2, hinge) ? source.p1 : source.p2;
+  const destinationOther =
+    distance(destination.p1, hinge) > distance(destination.p2, hinge)
+      ? destination.p1
+      : destination.p2;
+  const sourceAngle = Math.atan2(sourceOther.y - hinge.y, sourceOther.x - hinge.x);
+  const destinationAngle = Math.atan2(
+    destinationOther.y - hinge.y,
+    destinationOther.x - hinge.x,
+  );
+  let angleDelta = destinationAngle - sourceAngle;
+  while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+  while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+  const amount = smoothStep(hingedWallAnimation.progress);
+  const angle = sourceAngle + angleDelta * amount;
+  const length =
+    distance(hinge, sourceOther) +
+    (distance(hinge, destinationOther) - distance(hinge, sourceOther)) * amount;
+  const movingWall = {
+    ...source,
+    p1: { ...hinge },
+    p2: {
+      x: hinge.x + Math.cos(angle) * length,
+      y: hinge.y + Math.sin(angle) * length,
+    },
+    depth: source.depth + (destination.depth - source.depth) * amount,
+  };
+  drawInteriorWallSet(ctx, [movingWall]);
+  drawHingeHardware(
+    ctx,
+    hinge,
+    clamp(width * 0.01, 4, 8.5),
+    angle,
+    hingedWallAnimation.progress,
+  );
 }
 
 function tornadoWallPhasesAt(progress) {
@@ -4284,24 +5572,44 @@ function drawContainedCheese(ctx, center, polygon, size) {
   ctx.restore();
 }
 
-function drawCharacters(ctx, corners) {
-  if (!exit) return;
+function currentRockVisualState(rock) {
+  const push = mouseMotion?.rockPush;
+  if (!push || push.id !== rock.id) return { row: rock.row, col: rock.col, lift: 0 };
+  const eased = easeMouseMotion(mouseMotion.progress);
+  return {
+    row: push.from.row + (push.to.row - push.from.row) * eased,
+    col: push.from.col + (push.to.col - push.from.col) * eased,
+    lift: Math.sin(mouseMotion.progress * Math.PI),
+  };
+}
 
-  const cheesePolygon = cellPolygon(exit, corners);
+function drawRockSprite(ctx, center, size, lift = 0) {
+  if (!rockSprite.complete || !rockSprite.naturalWidth) return;
+  const rockSize = size * (1 + lift * 0.035);
+  ctx.save();
+  ctx.shadowColor = "rgba(44, 52, 43, 0.34)";
+  ctx.shadowBlur = rockSize * 0.12;
+  ctx.shadowOffsetY = rockSize * (0.1 + lift * 0.02);
+  ctx.drawImage(
+    rockSprite,
+    center.x - rockSize / 2,
+    center.y - rockSize * 0.68 - size * lift * 0.07,
+    rockSize,
+    rockSize,
+  );
+  ctx.restore();
+}
+
+function drawCharacters(ctx, corners) {
+  const remainingCheeses = remainingCheeseTargets();
+  if (!remainingCheeses.length && !cheeseEatingAnimating && !cheeseEaten) return;
+
+  const primaryCheese = activeFishingCatchTarget ?? cheeseEatingTarget ?? exit ?? mouse;
   const restingCheeseCenter = project(
     corners,
-    (exit.col + 0.5) / COLS,
-    (exit.row + 0.5) / ROWS,
+    (primaryCheese.col + 0.5) / COLS,
+    (primaryCheese.row + 0.5) / ROWS,
   );
-  const cheeseCellWidth = distance(
-    project(corners, exit.col / COLS, exit.row / ROWS),
-    project(corners, (exit.col + 1) / COLS, exit.row / ROWS),
-  );
-  const cheeseCellHeight =
-    (distance(cheesePolygon[0], cheesePolygon[3]) +
-      distance(cheesePolygon[1], cheesePolygon[2])) /
-    2;
-  const cheeseSize = Math.min(cheeseCellWidth, cheeseCellHeight) * CHEESE_SCALE;
 
   const visualMouse = currentMouseVisualState();
   const mouseCenter = project(
@@ -4324,7 +5632,7 @@ function drawCharacters(ctx, corners) {
     mouseCenter.y = vortexCenter.y;
   }
   const mouseStepScale = 1 + visualMouse.step * 0.035;
-  const fishingCastState = fishingCatchAnimating
+  const fishingCastState = fishingCatchAnimating && activeFishingCatchTarget
     ? fishingCastVisualStateAt(
         fishingCatchProgress,
         mouseCenter,
@@ -4332,35 +5640,81 @@ function drawCharacters(ctx, corners) {
         mouseCellWidth,
       )
     : null;
-  let cheeseCenter = fishingCastState?.cheeseCenter ?? restingCheeseCenter;
-  let tornadoCheeseState = null;
-  if (tornadoWallAnimation) {
-    tornadoCheeseState = tornadoCheeseStateAt(
-      tornadoWallAnimation.progress,
-      restingCheeseCenter,
-      project(corners, 0.5, 0.5),
-      mazeLayout.width,
+  for (const target of remainingCheeses) {
+    const revealingPush =
+      mouseMotion?.rockPush &&
+      keyOf(mouseMotion.rockPush.from) === keyOf(target) &&
+      mouseMotion.progress > 0.22;
+    if (!isCheeseVisible(target) && !revealingPush) continue;
+    const polygon = cellPolygon(target, corners);
+    const restingCenter = project(
+      corners,
+      (target.col + 0.5) / COLS,
+      (target.row + 0.5) / ROWS,
     );
-    cheeseCenter = tornadoCheeseState.center;
-  }
-  const showLooseCheese =
-    !cheeseEaten &&
-    (!cheeseEatingAnimating || cheeseEatingProgress < CHEESE_EAT_SETTLE_RATIO);
-  if (showLooseCheese) {
+    const cellWidth = distance(
+      project(corners, target.col / COLS, target.row / ROWS),
+      project(corners, (target.col + 1) / COLS, target.row / ROWS),
+    );
+    const cellHeight =
+      (distance(polygon[0], polygon[3]) + distance(polygon[1], polygon[2])) / 2;
+    const multiCheeseScale = cheeseTargets.length > 1 ? 0.78 : 1;
+    const size = Math.min(cellWidth, cellHeight) * CHEESE_SCALE * multiCheeseScale;
+    const isFishingTarget =
+      activeFishingCatchTarget && keyOf(target) === keyOf(activeFishingCatchTarget);
+    const isEatingTarget =
+      cheeseEatingTarget && keyOf(target) === keyOf(cheeseEatingTarget);
+    if (
+      isEatingTarget &&
+      cheeseEatingAnimating &&
+      cheeseEatingProgress >= CHEESE_EAT_SETTLE_RATIO
+    ) {
+      continue;
+    }
+
+    let center = isFishingTarget && fishingCastState
+      ? fishingCastState.cheeseCenter
+      : restingCenter;
+    let tornadoCheeseState = null;
+    if (tornadoWallAnimation) {
+      tornadoCheeseState = tornadoCheeseStateAt(
+        tornadoWallAnimation.progress,
+        restingCenter,
+        project(corners, 0.5, 0.5),
+        mazeLayout.width,
+      );
+      center = tornadoCheeseState.center;
+    }
+
     if (tornadoCheeseState) {
       drawRotatingSprite(
         ctx,
         cheeseSprite,
-        cheeseCenter,
-        cheeseSize,
+        center,
+        size,
         tornadoCheeseState.rotation,
         tornadoCheeseState.scale,
       );
-    } else if (!fishingCatchAnimating) {
-      drawContainedCheese(ctx, cheeseCenter, cheesePolygon, cheeseSize);
+    } else if (!isFishingTarget || !fishingCatchAnimating) {
+      drawContainedCheese(ctx, center, polygon, size);
     } else {
-      drawSprite(ctx, cheeseSprite, cheeseCenter, cheeseSize, 0.5);
+      drawSprite(ctx, cheeseSprite, center, size, 0.5);
     }
+  }
+
+
+  for (const rock of [...rockPositions].sort((first, second) => first.row - second.row)) {
+    const visualRock = currentRockVisualState(rock);
+    const center = project(
+      corners,
+      (visualRock.col + 0.5) / COLS,
+      (visualRock.row + 0.5) / ROWS,
+    );
+    const cellWidth = distance(
+      project(corners, visualRock.col / COLS, visualRock.row / ROWS),
+      project(corners, (visualRock.col + 1) / COLS, visualRock.row / ROWS),
+    );
+    drawRockSprite(ctx, center, cellWidth * ROCK_SCALE, visualRock.lift);
   }
 
   if (levelIntro) {
@@ -4788,7 +6142,14 @@ function finishLevelIntroAnimation() {
   mazeEl.setAttribute("aria-busy", "false");
   setMovementControlsEnabled(true);
   setPowerControlsEnabled(true);
-  setMessage("Study the maze, then swipe one cell at a time.");
+  const rockMode = LEVEL_CONFIGS[level - 1]?.rockMode;
+  const hingedWallCount = LEVEL_CONFIGS[level - 1]?.hingedWallCount ?? 0;
+  if (rockMode === "hidden") setMessage("A cheese is hidden beneath the rock.");
+  else if (rockMode === "blocker") setMessage("Push the rock aside to open the shorter route.");
+  else if (rockMode === "search") setMessage("One of these rocks is hiding the cheese.");
+  else if (hingedWallCount === 1) setMessage("The hinged wall can pivot and close a passage.");
+  else if (hingedWallCount > 1) setMessage("Hinged walls may reshape your route.");
+  else setMessage("Study the maze, then swipe one cell at a time.");
   render();
   saveCampaignState();
 }
@@ -4840,19 +6201,35 @@ function startLevelIntroAnimation(mode = "full") {
 
 function finishMouseMotion() {
   if (!mouseMotion) return;
-  const target = mouseMotion.to;
+  const completedMotion = mouseMotion;
+  const target = completedMotion.to;
   const queuedDirection = queuedMoveDirection;
   mouseMotion = null;
   mouseMotionFrame = null;
   queuedMoveDirection = null;
   movementPanelEl.classList.remove("moving");
   mazeEl.setAttribute("aria-busy", "false");
+  if (completedMotion.rockPush) {
+    const pushedRock = rockPositions.find(
+      (rock) => rock.id === completedMotion.rockPush.id,
+    );
+    if (pushedRock) {
+      pushedRock.row = completedMotion.rockPush.to.row;
+      pushedRock.col = completedMotion.rockPush.to.col;
+    }
+  }
   mouse = { ...target };
   movesLeft -= 1;
   render();
 
-  if (mouse.row === exit.row && mouse.col === exit.col) {
-    startCheeseEatingAnimation();
+  if (completedMotion.hingedWallTriggerId !== null) {
+    saveCampaignState();
+    return;
+  }
+
+  const reachedCheese = cheeseAt(mouse);
+  if (reachedCheese) {
+    startCheeseEatingAnimation(reachedCheese);
     return;
   }
 
@@ -4884,7 +6261,7 @@ function animateMouseMotion(timestamp) {
   mouseMotionFrame = requestAnimationFrame(animateMouseMotion);
 }
 
-function startMouseMotion(target) {
+function startMouseMotion(target, rockPush = null, hingedWallTrigger = null) {
   if (target.col > mouse.col) mouseFacingDirection = "right";
   else if (target.col < mouse.col) mouseFacingDirection = "left";
   else if (target.row < mouse.row) mouseFacingDirection = "up";
@@ -4893,19 +6270,102 @@ function startMouseMotion(target) {
   mouseMotion = {
     from: { ...mouse },
     to: target,
+    rockPush,
+    hingedWallTriggerId: hingedWallTrigger?.id ?? null,
     progress: 0,
     startedAt: null,
   };
   movementPanelEl.classList.add("moving");
   mazeEl.setAttribute("aria-busy", "true");
 
+  if (hingedWallTrigger) activateHingedWall(hingedWallTrigger);
+
   if (!canAnimateMouseMotion()) {
     mouseMotion.progress = 1;
     finishMouseMotion();
+    if (hingedWallAnimation) {
+      hingedWallAnimation.progress = 1;
+      finishHingedWallAnimation();
+    }
     return;
   }
 
   mouseMotionFrame = requestAnimationFrame(animateMouseMotion);
+}
+
+function hingedWallTriggerForArrival(target) {
+  return hingedWalls.find(
+    (wall) =>
+      !wall.activated &&
+      !wall.destroyed &&
+      !wall.moving &&
+      keyOf(wall.triggerFrom) === keyOf(target),
+  );
+}
+
+function finishHingedWallAnimation() {
+  if (!hingedWallAnimation) return;
+  const wall = hingedWalls.find((candidate) => candidate.id === hingedWallAnimation.wallId);
+  if (wall && !wall.destroyed) {
+    setSegmentWall(maze, wall.destination, true);
+    wall.activated = true;
+    wall.moving = false;
+  }
+  hingedWallAnimation = null;
+  hingedWallAnimationFrame = null;
+  mazeEl.setAttribute("aria-busy", "false");
+  const reachedCheese = cheeseAt(mouse);
+  if (reachedCheese) {
+    startCheeseEatingAnimation(reachedCheese);
+    return;
+  }
+  if (movesLeft <= 0) {
+    startMouseDefeatAnimation();
+    return;
+  }
+  setMovementControlsEnabled(true);
+  setPowerControlsEnabled(true);
+  setMessage("The hinged wall closed the passage. Find another route or use a power.", true);
+  render();
+  saveCampaignState();
+}
+
+function animateHingedWall(timestamp) {
+  if (!hingedWallAnimation) return;
+  if (hingedWallAnimation.startedAt === null) hingedWallAnimation.startedAt = timestamp;
+  hingedWallAnimation.progress = clamp(
+    (timestamp - hingedWallAnimation.startedAt) / HINGED_WALL_MOVE_DURATION_MS,
+    0,
+    1,
+  );
+  drawMaze();
+  if (hingedWallAnimation.progress >= 1) {
+    finishHingedWallAnimation();
+    return;
+  }
+  hingedWallAnimationFrame = requestAnimationFrame(animateHingedWall);
+}
+
+function activateHingedWall(wall) {
+  if (!wall || hingedWallAnimation) return;
+  wall.moving = true;
+  setSegmentWall(maze, wall.source, false);
+  hingedWallAnimation = {
+    wallId: wall.id,
+    source: { ...wall.source },
+    destination: { ...wall.destination },
+    hinge: { ...wall.hinge },
+    progress: 0,
+    startedAt: null,
+  };
+  setMovementControlsEnabled(false);
+  setPowerControlsEnabled(false);
+  mazeEl.setAttribute("aria-busy", "true");
+  setMessage("The hinged wall is moving to block that passage...", true);
+  requestMazeDraw();
+  if (canAnimateMouseMotion()) {
+    hingedWallAnimationFrame = requestAnimationFrame(animateHingedWall);
+  }
 }
 
 function move(directionKey) {
@@ -4921,6 +6381,7 @@ function move(directionKey) {
     crystalRevealing ||
     fishingCatchAnimating ||
     rocketFlightAnimation ||
+    hingedWallAnimation ||
     powerTransform ||
     isPowerTargeting()
   ) {
@@ -4933,15 +6394,44 @@ function move(directionKey) {
     showInvalidMove();
     return;
   }
+  const target = { row: mouse.row + dir.row, col: mouse.col + dir.col };
+  const hingedTrigger = hingedWallTriggerForArrival(target);
+  const blockingRock = rockAt(target);
+  if (!blockingRock) {
+    startMouseMotion(target, null, hingedTrigger);
+    return;
+  }
 
-  startMouseMotion({ row: mouse.row + dir.row, col: mouse.col + dir.col });
+  const rockDestination = {
+    row: target.row + dir.row,
+    col: target.col + dir.col,
+  };
+  const targetCell = maze[target.row][target.col];
+  const cheeseBlocksDestination = remainingCheeseTargets().some(
+    (cheese) => keyOf(cheese) === keyOf(rockDestination),
+  );
+  if (
+    !isInside(rockDestination.row, rockDestination.col) ||
+    targetCell.walls[dir.wall] ||
+    rockAt(rockDestination) ||
+    cheeseBlocksDestination
+  ) {
+    showInvalidMove("The rock cannot be pushed in that direction.");
+    return;
+  }
+
+  startMouseMotion(target, {
+    id: blockingRock.id,
+    from: { row: blockingRock.row, col: blockingRock.col },
+    to: rockDestination,
+  });
 }
 
-function showInvalidMove() {
+function showInvalidMove(message = "There is a wall there. Choose another direction.") {
   mazeEl.classList.remove("invalid");
   void mazeEl.offsetWidth;
   mazeEl.classList.add("invalid");
-  setMessage("There is a wall there. Choose another direction.", true);
+  setMessage(message, true);
 }
 
 function animateCheeseEating(timestamp) {
@@ -4955,19 +6445,43 @@ function animateCheeseEating(timestamp) {
   drawMaze();
 
   if (cheeseEatingProgress >= 1) {
-    cheeseEatingAnimating = false;
-    cheeseEatingFrame = null;
-    cheeseEaten = true;
-    requestMazeDraw();
-    winLevel();
+    finishCheeseEatingAnimation();
     return;
   }
 
   cheeseEatingFrame = requestAnimationFrame(animateCheeseEating);
 }
 
-function startCheeseEatingAnimation() {
-  if (cheeseEatingAnimating || cheeseEaten) return;
+function finishCheeseEatingAnimation() {
+  if (!cheeseEatingTarget) return;
+  collectedCheeseKeys.add(keyOf(cheeseEatingTarget));
+  cheeseEatingAnimating = false;
+  cheeseEatingFrame = null;
+  cheeseEatingProgress = 1;
+  const remaining = remainingCheeseTargets();
+  cheeseEaten = remaining.length === 0;
+  cheeseEatingTarget = null;
+  syncActiveExit();
+  render();
+
+  if (cheeseEaten) {
+    winLevel();
+    return;
+  }
+
+  gameOver = false;
+  if (movesLeft <= 0) {
+    startMouseDefeatAnimation();
+    return;
+  }
+  setMovementControlsEnabled(true);
+  setPowerControlsEnabled(true);
+  setMessage(`${collectedCheeseKeys.size}/${cheeseTargets.length} cheeses found. Find the last one.`);
+  saveCampaignState();
+}
+
+function startCheeseEatingAnimation(target = cheeseAt(mouse)) {
+  if (!target || cheeseEatingAnimating || collectedCheeseKeys.has(keyOf(target))) return;
   gameOver = true;
   retryCostsAttempt = false;
   clearMouseDefeatAnimation();
@@ -4976,6 +6490,7 @@ function startCheeseEatingAnimation() {
   clearFishingCatchAnimation();
   clearRocketFlightAnimation();
   clearPowerTargetingState();
+  cheeseEatingTarget = { ...target };
   cheeseEatingAnimating = true;
   cheeseEatingProgress = 0;
   cheeseEatingStartedAt = null;
@@ -4983,13 +6498,15 @@ function startCheeseEatingAnimation() {
   setMovementControlsEnabled(false);
   setPowerControlsEnabled(false);
   updateMoveWarningUI();
-  setMessage("The mouse found the cheese.");
+  setMessage(
+    cheeseTargets.length > 1
+      ? `The mouse found cheese ${collectedCheeseKeys.size + 1} of ${cheeseTargets.length}.`
+      : "The mouse found the cheese.",
+  );
   requestMazeDraw();
 
   if (!canAnimateMouseMotion()) {
-    cheeseEatingAnimating = false;
-    cheeseEaten = true;
-    winLevel();
+    finishCheeseEatingAnimation();
     return;
   }
 
@@ -5072,7 +6589,7 @@ function winLevel() {
   updateAttemptUI();
 
   if (level >= LEVEL_CONFIGS.length) {
-    setMessage("Game over. You cleared the first 5 levels.");
+    setMessage(`Game over. You cleared the first ${LEVEL_CONFIGS.length} levels.`);
     retryButton.disabled = true;
     nextButton.disabled = true;
     nextButton.textContent = "Complete";
@@ -5136,12 +6653,20 @@ function showCampaignComplete() {
   controlsPanelEl.hidden = false;
   maze = blankMaze();
   exit = null;
+  cheeseTargets = [];
+  collectedCheeseKeys = new Set();
+  initialRocks = [];
+  rockPositions = [];
+  hiddenCheeseKeys = new Set();
+  initialHingedWalls = [];
+  hingedWalls = [];
+  clearHingedWallAnimation();
   levelStart = { ...START };
   mouse = { ...START };
   movesLeft = 0;
   render();
   starsEl.textContent = "\u2605 \u2605 \u2605";
-  setMessage("Game over. You cleared the first 5 levels.");
+  setMessage(`Game over. You cleared the first ${LEVEL_CONFIGS.length} levels.`);
   retryButton.disabled = true;
   nextButton.disabled = true;
   nextButton.textContent = "Complete";

@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="screen-orientation" content="portrait" />
+    <meta name="x5-orientation" content="portrait" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>Mouse Maze Run</title>
+  <link rel="manifest" href="manifest.webmanifest?v=v8-helper-eligibility-1" />
+    <link rel="stylesheet" href="styles.css?v=v8-world-coming-soon-3" />
+  <link rel="preload" as="image" href="assets/runtime/world-nav-shop-active-divider-v2.png?v=v7-shop-divider-1" />
+  <link rel="preload" as="image" href="assets/runtime/world-nav-pass-active.png?v=v7-shop-divider-1" />
+  </head>
+  <body class="world-view">
+    <aside class="perf-metrics" id="perfMetrics" aria-label="Performance metrics" hidden>
+      <span id="perfFps">FPS -- / --</span>
+      <span id="perfFrameTime">Frame -- ms</span>
+      <span id="perfCanvas">Canvas -- MP</span>
+      <span id="perfMemory">Memory -- MB</span>
+    </aside>
+    <section class="world-screen" id="worldScreen" aria-label="Game progress">
+      <header class="world-header">
+        <div class="world-resources" aria-label="Player resources">
+          <div class="world-currency" id="worldCurrencyStatus" aria-label="0 shirt buttons">
+            <img src="assets/runtime/cash-button.png?v=v7-performance-1" alt="" draggable="false" />
+            <strong id="worldCurrencyCount">0</strong>
+          </div>
+          <div class="world-attempts" id="worldAttemptStatus" aria-label="5 attempts available">
+            <svg class="world-energy-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M13.4 2 5.8 13.1h5L9.8 22l8.4-12.2h-5.1L13.4 2Z" />
+            </svg>
+            <span>Attempts</span>
+            <strong id="worldAttemptCount">7</strong>
+            <small id="worldAttemptTimer">MAX</small>
+          </div>
+          <button class="world-settings" id="worldSettingsButton" type="button" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.56v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.1 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.3V9.56h.1A1.7 1.7 0 0 0 4.1 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.56 3.7l.06.06A1.7 1.7 0 0 0 8.5 4.1a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2.3h4.04v.1A1.7 1.7 0 0 0 15 4.1a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.5a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4.04h-.1A1.7 1.7 0 0 0 19.4 15Z" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="chapter-heading">
+        <div>
+          <span id="worldChapterLabel">Section 1</span>
+          <h2 id="worldChapterTitle">Through the cupboards</h2>
+        </div>
+        <div class="chapter-count" id="worldProgressText">0 / 10</div>
+      </div>
+
+      <div class="chapter-progress" aria-hidden="true">
+        <span id="worldProgressBar"></span>
+      </div>
+
+      <div class="world-map" id="worldMap">
+        <div class="world-map-track" id="worldMapTrack">
+          <div class="world-scenery world-scenery-garden" id="worldSceneryGarden" aria-hidden="true">
+            <span class="world-scenery-panel world-scenery-panel-top"></span>
+            <span class="world-scenery-panel world-scenery-panel-middle"></span>
+            <span class="world-scenery-panel world-scenery-panel-base"></span>
+            <span class="world-scenery-panel world-scenery-panel-start"></span>
+          </div>
+          <div class="world-scenery world-scenery-picnic" id="worldSceneryPicnic" aria-hidden="true" hidden>
+            <span class="world-scenery-panel world-scenery-panel-top"></span>
+            <span class="world-scenery-panel world-scenery-panel-middle"></span>
+            <span class="world-scenery-panel world-scenery-panel-base"></span>
+          </div>
+          <div class="world-scenery world-scenery-vegetable" id="worldSceneryVegetable" aria-hidden="true" hidden>
+            <span class="world-scenery-panel world-scenery-panel-top"></span>
+            <span class="world-scenery-panel world-scenery-panel-middle"></span>
+            <span class="world-scenery-panel world-scenery-panel-base"></span>
+          </div>
+          <div class="world-scenery world-scenery-kitchen" id="worldSceneryKitchen" aria-hidden="true" hidden>
+            <span class="world-scenery-panel world-scenery-panel-top"></span>
+            <span class="world-scenery-panel world-scenery-panel-middle"></span>
+            <span class="world-scenery-panel world-scenery-panel-base"></span>
+          </div>
+          <svg
+            class="garden-world-path"
+            id="gardenWorldPath"
+            viewBox="0 0 360 2760"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="gardenWorldRoadToPicnic" x1="0" y1="2760" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#9b6035" />
+                <stop offset="100%" stop-color="#9b6035" />
+              </linearGradient>
+              <linearGradient id="gardenWorldRoadDetailToPicnic" x1="0" y1="2760" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#d8a36c" />
+                <stop offset="100%" stop-color="#d8a36c" />
+              </linearGradient>
+            </defs>
+            <path
+              id="gardenWorldRoadBase"
+              class="world-path-road-base"
+              d="M 180 2760 C 145 2741 105 2731 72 2714 C 105 2675 140 2664 176 2650 S 297 2616 281 2585 S 199 2544 223 2521 S 109 2489 101 2456 S 48 2418 65 2392 S 185 2360 180 2328 S 302 2295 292 2263 S 230 2226 241 2199 S 112 2162 122 2134 S 52 2098 65 2070 S 172 2032 166 2006 S 295 1972 277 1941 S 170 1907 205 1881 C 198 1864 172 1852 150 1840 C 128 1828 99 1807 72 1794 C 104 1765 139 1752 173 1739 S 299 1710 281 1684 S 255 1639 238 1619 S 139 1581 115 1555 S 48 1518 65 1490 S 137 1450 166 1426 S 307 1391 288 1362 S 270 1317 245 1297 S 155 1253 130 1233 S 47 1194 65 1168 C 130 1140 220 1115 277 1021 C 286 1000 246 978 205 961 C 185 947 168 933 150 920 C 128 908 99 887 72 874 C 127 842 164 811 198 778 S 229 711 190 682 S 112 634 133 594 S 257 535 236 493 S 122 444 144 399 S 283 344 249 300 S 139 252 165 209 S 265 153 215 111 S 198 43 180 0"
+            />
+            <path
+              id="gardenWorldRoadDetail"
+              class="world-path-road-detail"
+              d="M 180 2760 C 145 2741 105 2731 72 2714 C 105 2675 140 2664 176 2650 S 297 2616 281 2585 S 199 2544 223 2521 S 109 2489 101 2456 S 48 2418 65 2392 S 185 2360 180 2328 S 302 2295 292 2263 S 230 2226 241 2199 S 112 2162 122 2134 S 52 2098 65 2070 S 172 2032 166 2006 S 295 1972 277 1941 S 170 1907 205 1881 C 198 1864 172 1852 150 1840 C 128 1828 99 1807 72 1794 C 104 1765 139 1752 173 1739 S 299 1710 281 1684 S 255 1639 238 1619 S 139 1581 115 1555 S 48 1518 65 1490 S 137 1450 166 1426 S 307 1391 288 1362 S 270 1317 245 1297 S 155 1253 130 1233 S 47 1194 65 1168 C 130 1140 220 1115 277 1021 C 286 1000 246 978 205 961 C 185 947 168 933 150 920 C 128 908 99 887 72 874 C 127 842 164 811 198 778 S 229 711 190 682 S 112 634 133 594 S 257 535 236 493 S 122 444 144 399 S 283 344 249 300 S 139 252 165 209 S 265 153 215 111 S 198 43 180 0"
+            />
+          </svg>
+          <div class="world-start-landmark" id="worldStartLandmark" aria-hidden="true">
+            <svg class="world-start-path" viewBox="0 0 360 198" preserveAspectRatio="none">
+              <path
+                class="world-start-path-base"
+                d="M 94 0 C 84 35 62 56 58 91 C 53 135 78 176 124 190 C 156 200 191 194 205 178 C 213 169 212 155 209 144"
+              />
+              <path
+                class="world-start-path-detail"
+                d="M 94 0 C 84 35 62 56 58 91 C 53 135 78 176 124 190 C 156 200 191 194 205 178 C 213 169 212 155 209 144"
+              />
+            </svg>
+            <img
+              src="assets/runtime/world-start-burrow-background-v2.png?v=v7-world-journey-1"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <div class="world-future-veil" id="worldFutureVeil">
+            <div
+              class="world-coming-soon"
+              id="worldComingSoon"
+              role="status"
+              aria-label="More levels coming soon"
+              hidden
+            >
+              <span>More levels</span>
+              <strong>Coming soon</strong>
+              <span class="world-coming-soon-dots" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+            </div>
+          </div>
+          <div class="world-map-section world-map-section-one" id="worldChapterOneMap">
+            <div class="pantry-shelf shelf-top" aria-hidden="true">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-jar jar-blue"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle" aria-hidden="true">
+              <span class="pantry-box"></span>
+              <img class="map-rock" src="assets/runtime/rock.png?v=v7-performance-1" alt="" />
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none" aria-hidden="true">
+              <path
+                class="world-path-road-base"
+                d="M180 920 C145 901 105 891 72 874 C105 835 140 824 176 810 S297 776 281 745 S199 704 223 681 S109 649 101 616 S48 578 65 552 S185 520 180 488 S302 455 292 423 S230 386 241 359 S112 322 122 294 S52 258 65 230 S172 192 166 166 S295 132 277 101 S170 67 205 41 C198 24 172 12 150 0"
+              />
+              <path
+                class="world-path-road-detail"
+                d="M180 920 C145 901 105 891 72 874 C105 835 140 824 176 810 S297 776 281 745 S199 704 223 681 S109 649 101 616 S48 578 65 552 S185 520 180 488 S302 455 292 423 S230 386 241 359 S112 322 122 294 S52 258 65 230 S172 192 166 166 S295 132 277 101 S170 67 205 41 C198 24 172 12 150 0"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-two" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-box"></span>
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-jar jar-gold"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <path
+                class="world-path-road-base"
+                d="M150 920 C128 908 99 887 72 874 C104 845 139 832 173 819 S299 790 281 764 S255 719 238 699 S139 661 115 635 S48 598 65 570 S137 530 166 506 S307 471 288 442 S270 397 245 377 S155 333 130 313 S47 274 65 248 S145 207 176 184 C190 135 215 88 205 41 C198 24 177 10 150 0"
+              />
+              <path
+                class="world-path-road-detail"
+                d="M150 920 C128 908 99 887 72 874 C104 845 139 832 173 819 S299 790 281 764 S255 719 238 699 S139 661 115 635 S48 598 65 570 S137 530 166 506 S307 471 288 442 S270 397 245 377 S155 333 130 313 S47 274 65 248 S145 207 176 184 C190 135 215 88 205 41 C198 24 177 10 150 0"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-three" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-box"></span>
+              <img class="map-rock" data-asset-group="tunnels" data-src="assets/runtime/tunnel.png?v=v7-performance-1" alt="" />
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-jar jar-blue"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="gardenRoadToPicnic" x1="0" y1="920" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#9b6035" />
+                  <stop offset="100%" stop-color="#9b6035" />
+                </linearGradient>
+                <linearGradient id="gardenRoadDetailToPicnic" x1="0" y1="920" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#d8a36c" />
+                  <stop offset="100%" stop-color="#d8a36c" />
+                </linearGradient>
+              </defs>
+              <path
+                class="world-path-road-base"
+                d="M150 920 C128 908 99 887 72 874 C127 842 164 811 198 778 S229 711 190 682 S112 634 133 594 S257 535 236 493 S122 444 144 399 S283 344 249 300 S139 252 165 209 S265 153 215 111 S198 43 180 0"
+              />
+              <path
+                class="world-path-road-detail"
+                d="M150 920 C128 908 99 887 72 874 C127 842 164 811 198 778 S229 711 190 682 S112 634 133 594 S257 535 236 493 S122 444 144 399 S283 344 249 300 S139 252 165 209 S265 153 215 111 S198 43 180 0"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-four" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="picnicRoutePatternFour" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width="12" height="12" fill="#f8f0c9" />
+                  <rect width="5" height="12" fill="#b7c568" opacity="0.78" />
+                  <rect width="12" height="5" fill="#c7d27f" opacity="0.7" />
+                  <rect width="5" height="5" fill="#91a644" opacity="0.95" />
+                </pattern>
+                <linearGradient id="picnicRouteRevealGradientFour" x1="0" y1="920" x2="0" y2="874" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#000" />
+                  <stop offset="18%" stop-color="#000" />
+                  <stop offset="100%" stop-color="#fff" />
+                </linearGradient>
+                <linearGradient id="gardenRouteFadeGradientFour" x1="0" y1="920" x2="0" y2="874" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#fff" />
+                  <stop offset="18%" stop-color="#fff" />
+                  <stop offset="100%" stop-color="#000" />
+                </linearGradient>
+                <mask id="picnicRouteRevealFour" x="0" y="0" width="360" height="920" maskUnits="userSpaceOnUse" style="mask-type: luminance">
+                  <rect width="360" height="920" fill="url(#picnicRouteRevealGradientFour)" />
+                </mask>
+                <mask id="gardenRouteFadeFour" x="0" y="0" width="360" height="920" maskUnits="userSpaceOnUse" style="mask-type: luminance">
+                  <rect width="360" height="920" fill="url(#gardenRouteFadeGradientFour)" />
+                </mask>
+                <path
+                  id="picnicRouteFourShape"
+                  d="M180 920 C145 902 104 891 72 874 C111 843 153 824 188 798 S286 754 263 719 S126 674 149 635 S287 582 255 541 S113 490 141 451 S286 399 250 357 S109 311 139 270 S278 214 241 174 S131 119 190 69 S190 25 180 0"
+                />
+              </defs>
+              <use class="picnic-route-transition-base" href="#picnicRouteFourShape" mask="url(#gardenRouteFadeFour)" />
+              <use class="picnic-route-transition-detail" href="#picnicRouteFourShape" mask="url(#gardenRouteFadeFour)" />
+              <use class="picnic-route-pattern" href="#picnicRouteFourShape" mask="url(#picnicRouteRevealFour)" />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-five" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-box"></span>
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-jar jar-coral"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="picnicRoutePatternFive" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width="12" height="12" fill="#f8f0c9" />
+                  <rect width="5" height="12" fill="#b7c568" opacity="0.78" />
+                  <rect width="12" height="5" fill="#c7d27f" opacity="0.7" />
+                  <rect width="5" height="5" fill="#91a644" opacity="0.95" />
+                </pattern>
+              </defs>
+              <path
+                class="picnic-route-pattern"
+                d="M180 920 C145 902 103 891 72 874 C113 842 165 826 196 793 S278 746 254 710 S119 670 147 628 S286 579 251 538 S111 487 142 446 S283 394 247 351 S111 306 140 265 S274 210 239 171 S134 116 192 68 S190 24 180 0"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-six" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-box"></span>
+              <span class="pantry-jar jar-gold"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="picnicRoutePatternSix" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width="12" height="12" fill="#f8f0c9" />
+                  <rect width="5" height="12" fill="#b7c568" opacity="0.78" />
+                  <rect width="12" height="5" fill="#c7d27f" opacity="0.7" />
+                  <rect width="5" height="5" fill="#91a644" opacity="0.95" />
+                </pattern>
+              </defs>
+              <path
+                class="picnic-route-pattern"
+                d="M180 920 C145 902 104 891 72 874 C105 839 148 827 183 804 S292 765 268 728 S136 680 157 640 S287 587 257 548 S126 493 151 454 S282 402 250 361 S122 311 147 270 S277 219 243 177 S137 119 193 68 S191 24 180 0"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-seven" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-box"></span>
+              <span class="pantry-jar jar-coral"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-jar jar-blue"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="vegetableRoutePatternSeven" width="48" height="68" patternUnits="userSpaceOnUse">
+                  <image
+                    href="assets/vegetable-garden-dirt-texture-v1.webp?v=v7-vegetable-world-1"
+                    width="48"
+                    height="68"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </pattern>
+                <pattern id="picnicRoutePatternSevenTransition" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width="12" height="12" fill="#f8f0c9" />
+                  <rect width="5" height="12" fill="#b7c568" opacity="0.78" />
+                  <rect width="12" height="5" fill="#c7d27f" opacity="0.7" />
+                  <rect width="5" height="5" fill="#91a644" opacity="0.95" />
+                </pattern>
+                <linearGradient id="vegetableRouteRevealGradientSeven" x1="0" y1="920" x2="0" y2="874" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#000" />
+                  <stop offset="16%" stop-color="#000" />
+                  <stop offset="100%" stop-color="#fff" />
+                </linearGradient>
+                <linearGradient id="picnicRouteFadeGradientSeven" x1="0" y1="920" x2="0" y2="874" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#fff" />
+                  <stop offset="16%" stop-color="#fff" />
+                  <stop offset="100%" stop-color="#000" />
+                </linearGradient>
+                <mask id="vegetableRouteRevealSeven" x="0" y="0" width="360" height="920" maskUnits="userSpaceOnUse" style="mask-type: luminance">
+                  <rect width="360" height="920" fill="url(#vegetableRouteRevealGradientSeven)" />
+                </mask>
+                <mask id="picnicRouteFadeSeven" x="0" y="0" width="360" height="920" maskUnits="userSpaceOnUse" style="mask-type: luminance">
+                  <rect width="360" height="920" fill="url(#picnicRouteFadeGradientSeven)" />
+                </mask>
+                <path
+                  id="vegetableRouteSevenShape"
+                  d="M180 920 C145 902 104 890 72 874 C118 847 161 821 190 790 S284 742 254 705 S119 660 149 620 S282 568 250 526 S112 478 143 436 S278 383 246 343 S111 295 142 255 S272 204 238 164 S134 111 193 64 S190 22 180 0"
+                />
+              </defs>
+              <use class="vegetable-route-base" href="#vegetableRouteSevenShape" mask="url(#vegetableRouteRevealSeven)" />
+              <use class="vegetable-route-pattern" href="#vegetableRouteSevenShape" mask="url(#vegetableRouteRevealSeven)" />
+              <use class="vegetable-route-transition-picnic" href="#vegetableRouteSevenShape" mask="url(#picnicRouteFadeSeven)" />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-eight" aria-hidden="true">
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="vegetableRoutePatternEight" width="48" height="68" patternUnits="userSpaceOnUse">
+                  <image
+                    href="assets/vegetable-garden-dirt-texture-v1.webp?v=v7-vegetable-world-1"
+                    width="48"
+                    height="68"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </pattern>
+                <path id="vegetableRouteEightShape" d="M180 920 L180 0" />
+              </defs>
+              <use class="vegetable-route-base" href="#vegetableRouteEightShape" />
+              <use class="vegetable-route-pattern" href="#vegetableRouteEightShape" />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-nine" aria-hidden="true">
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="vegetableRoutePatternNine" width="48" height="68" patternUnits="userSpaceOnUse">
+                  <image
+                    href="assets/vegetable-garden-dirt-texture-v1.webp?v=v7-vegetable-world-1"
+                    width="48"
+                    height="68"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </pattern>
+                <path id="vegetableRouteNineShape" d="M180 920 L180 0" />
+              </defs>
+              <use class="vegetable-route-base" href="#vegetableRouteNineShape" />
+              <use class="vegetable-route-pattern" href="#vegetableRouteNineShape" />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-ten" aria-hidden="true">
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <defs>
+                <pattern id="kitchenRoutePatternTen" width="36" height="96" patternUnits="userSpaceOnUse">
+                  <image
+                    href="assets/kitchen-route-woven-v1.png?v=v8-kitchen-webs-2"
+                    width="36"
+                    height="96"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </pattern>
+                <pattern id="vegetableRoutePatternTenTransition" width="48" height="68" patternUnits="userSpaceOnUse">
+                  <image
+                    href="assets/vegetable-garden-dirt-texture-v1.webp?v=v7-vegetable-world-1"
+                    width="48"
+                    height="68"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </pattern>
+                <linearGradient id="kitchenRouteRevealGradientTen" x1="0" y1="920" x2="0" y2="760" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#000" />
+                  <stop offset="10%" stop-color="#000" />
+                  <stop offset="100%" stop-color="#fff" />
+                </linearGradient>
+                <linearGradient id="vegetableRouteFadeGradientTen" x1="0" y1="920" x2="0" y2="760" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#fff" />
+                  <stop offset="10%" stop-color="#fff" />
+                  <stop offset="100%" stop-color="#000" />
+                </linearGradient>
+                <mask id="kitchenRouteRevealTen" x="0" y="0" width="360" height="920" maskUnits="userSpaceOnUse" style="mask-type: luminance">
+                  <rect width="360" height="920" fill="url(#kitchenRouteRevealGradientTen)" />
+                </mask>
+                <mask id="vegetableRouteFadeTen" x="0" y="0" width="360" height="920" maskUnits="userSpaceOnUse" style="mask-type: luminance">
+                  <rect width="360" height="920" fill="url(#vegetableRouteFadeGradientTen)" />
+                </mask>
+                <path
+                  id="kitchenRouteTenShape"
+                  d="M180 920 C145 902 104 890 72 874 C118 847 161 821 190 790 S284 742 254 705 S119 660 149 620 S282 568 250 526 S112 478 143 436 S278 383 246 343 S111 295 142 255 S272 204 238 164 S134 111 193 64 S190 22 180 0"
+                />
+              </defs>
+              <use class="kitchen-route-base" href="#kitchenRouteTenShape" mask="url(#kitchenRouteRevealTen)" />
+              <use class="kitchen-route-pattern" href="#kitchenRouteTenShape" mask="url(#kitchenRouteRevealTen)" />
+              <use class="kitchen-route-transition-vegetable" href="#kitchenRouteTenShape" mask="url(#vegetableRouteFadeTen)" />
+            </svg>
+          </div>
+          <div class="world-theme-transition" id="worldThemeTransition" aria-hidden="true" hidden></div>
+          <div
+            class="world-theme-transition world-theme-transition-vegetable"
+            id="worldVegetableTransition"
+            aria-hidden="true"
+            hidden
+          ></div>
+          <div
+            class="world-theme-transition world-theme-transition-kitchen"
+            id="worldKitchenTransition"
+            aria-hidden="true"
+            hidden
+          ></div>
+          <div class="level-nodes" id="worldLevelNodes"></div>
+          <div class="world-mouse" id="worldMouse" aria-hidden="true">
+            <img src="assets/runtime/mouse.png?v=v7-mouse-tail-fix-1" alt="" draggable="false" />
+          </div>
+        </div>
+      </div>
+
+      <section class="world-placeholder-page world-shop-page" id="worldShopPage" aria-label="Shop" hidden>
+        <nav class="shop-category-tabs" aria-label="Shop categories" role="tablist">
+          <button
+            class="shop-category-tab"
+            id="shopItemsTab"
+            type="button"
+            role="tab"
+            aria-controls="shopItemsPanel"
+            aria-selected="true"
+          >
+            <svg class="shop-category-icon shop-category-items-icon" viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M5 13.5h22M7.5 13.5V27h17V13.5M10 27v-7h6v7M4.5 13.5 7 6h18l2.5 7.5" />
+              <path d="M5 13.5c0 2 1.5 3.4 3.4 3.4s3.4-1.4 3.4-3.4c0 2 1.5 3.4 3.4 3.4s3.4-1.4 3.4-3.4c0 2 1.5 3.4 3.4 3.4s3.4-1.4 3.4-3.4" />
+            </svg>
+            <span>Items</span>
+          </button>
+          <button
+            class="shop-category-tab"
+            id="shopSkinsTab"
+            type="button"
+            role="tab"
+            aria-controls="shopSkinsPanel"
+            aria-selected="false"
+          >
+            <img class="shop-category-icon shop-category-skins-icon" src="assets/runtime/mouse.png?v=v7-mouse-tail-fix-1" alt="" draggable="false" />
+            <span>Skins</span>
+          </button>
+        </nav>
+        <div class="shop-category-content">
+          <section id="shopItemsPanel" role="tabpanel" aria-labelledby="shopItemsTab"></section>
+          <section id="shopSkinsPanel" role="tabpanel" aria-labelledby="shopSkinsTab" hidden>
+            <div class="shop-skin-grid" aria-label="Available skins">
+              <article class="shop-skin-card" data-skin-id="original">
+                <div class="shop-skin-preview">
+                  <img src="assets/runtime/mouse.png?v=v7-mouse-tail-fix-1" alt="Original mouse" draggable="false" />
+                </div>
+                <h3>Original</h3>
+                <button class="shop-skin-select" type="button" data-skin-id="original">Select</button>
+              </article>
+              <article class="shop-skin-card" data-skin-id="albino">
+                <div class="shop-skin-preview">
+                  <img id="shopAlbinoPreview" alt="White mouse" draggable="false" />
+                </div>
+                <h3>White</h3>
+                <button class="shop-skin-select" type="button" data-skin-id="albino">Select</button>
+              </article>
+              <article class="shop-skin-card" data-skin-id="shadow">
+                <div class="shop-skin-preview">
+                  <img id="shopShadowPreview" alt="Black mouse" draggable="false" />
+                </div>
+                <h3>Black</h3>
+                <button class="shop-skin-select" type="button" data-skin-id="shadow">Select</button>
+              </article>
+              <article class="shop-skin-card" data-skin-id="pink">
+                <div class="shop-skin-preview">
+                  <img id="shopPinkPreview" alt="Pink mouse" draggable="false" />
+                </div>
+                <h3>Pink</h3>
+                <button class="shop-skin-select" type="button" data-skin-id="pink">Select</button>
+              </article>
+              <article class="shop-skin-card" data-skin-id="orange">
+                <div class="shop-skin-preview">
+                  <img id="shopOrangePreview" alt="Orange mouse" draggable="false" />
+                </div>
+                <h3>Orange</h3>
+                <button class="shop-skin-select" type="button" data-skin-id="orange">Select</button>
+              </article>
+              <article class="shop-skin-card shop-skin-card-special" data-skin-id="gold">
+                <div class="shop-skin-preview">
+                  <span class="shop-skin-special">Special</span>
+                  <img id="shopGoldPreview" alt="Gold mouse" draggable="false" />
+                </div>
+                <h3>Gold</h3>
+                <button class="shop-skin-select" type="button" data-skin-id="gold">Select</button>
+              </article>
+            </div>
+            <div class="shop-more-skins-banner">More coming soon</div>
+          </section>
+        </div>
+      </section>
+      <section class="world-placeholder-page world-pass-page" id="worldPassPage" aria-label="Pass" hidden></section>
+
+      <div class="level-sheet-backdrop" id="levelSheetBackdrop" hidden></div>
+      <section
+        class="level-sheet"
+        id="levelSheet"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="levelSheetTitle"
+        hidden
+      >
+        <button class="sheet-close" id="levelSheetClose" type="button" aria-label="Close">&times;</button>
+        <div class="sheet-level-ribbon">
+          <span>Level</span>
+          <strong id="sheetLevelMark">1</strong>
+        </div>
+        <h2 class="visually-hidden" id="levelSheetTitle">Level 1</h2>
+        <p class="visually-hidden" id="levelSheetObjective">Find the cheese</p>
+        <small class="visually-hidden" id="levelSheetDifficulty">Tutorial</small>
+        <div class="sheet-card-content">
+          <div class="sheet-panel sheet-objective-panel">
+            <span class="sheet-panel-label">Objectives</span>
+            <div class="sheet-objectives" id="levelSheetObjectives"></div>
+          </div>
+          <div class="sheet-panel sheet-difficulty-panel">
+            <span class="sheet-panel-label">Difficulty</span>
+            <div class="sheet-difficulty-meter" id="levelSheetDifficultyMeter" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="sheet-actions">
+          <button class="sheet-play" id="levelSheetPlay" type="button">
+            <span data-play-label>Play</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m9 5 7 7-7 7" />
+            </svg>
+          </button>
+          <button class="sheet-play sheet-helper-play" id="levelSheetHelperPlay" type="button" hidden>
+            <canvas class="sheet-helper-play-preview" id="helperOptionPreview" width="72" height="72" aria-hidden="true"></canvas>
+            <span class="sheet-helper-play-copy">Get helper<small>&amp; play</small></span>
+            <span class="sheet-helper-play-reward">
+              <strong class="sheet-helper-play-badge" id="helperOptionBadge">AD</strong>
+              <svg class="sheet-helper-ad-icon" viewBox="0 0 28 28" aria-hidden="true">
+                <rect x="3.5" y="6" width="21" height="17" rx="3" />
+                <path d="m12 11 6 3.5-6 3.5z" />
+                <path d="M8 3.5v3M14 3.5v3M20 3.5v3" />
+              </svg>
+            </span>
+          </button>
+        </div>
+        <div class="helper-ad-preview" id="helperAdPreview" role="status" aria-live="polite" hidden>
+          <div class="helper-ad-preview-icon">▶</div>
+          <strong>Rewarded video</strong>
+          <span>Preparing your little helper...</span>
+          <div class="helper-ad-progress"><span></span></div>
+        </div>
+      </section>
+
+      <nav class="world-bottom-nav" aria-label="Main navigation">
+        <img
+          class="world-nav-art"
+          id="worldNavArt"
+          src="assets/runtime/world-nav-map-active.png?v=v7-shop-divider-1"
+          alt=""
+          draggable="false"
+        />
+        <button class="world-nav-button world-nav-shop" id="worldNavShop" type="button" aria-label="Shop">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M5 13.5h22M7.5 13.5V27h17V13.5M10 27v-7h6v7M4.5 13.5 7 6h18l2.5 7.5" />
+            <path d="M5 13.5c0 2 1.5 3.4 3.4 3.4s3.4-1.4 3.4-3.4c0 2 1.5 3.4 3.4 3.4s3.4-1.4 3.4-3.4c0 2 1.5 3.4 3.4 3.4s3.4-1.4 3.4-3.4" />
+          </svg>
+          <span>Shop</span>
+        </button>
+        <button class="world-nav-button world-nav-map" id="worldNavMap" type="button" aria-label="Map" aria-current="page">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 28s8-7.5 8-15a8 8 0 1 0-16 0c0 7.5 8 15 8 15Z" />
+            <circle cx="16" cy="13" r="3.2" />
+          </svg>
+          <span>Map</span>
+        </button>
+        <button class="world-nav-button world-nav-pass" id="worldNavPass" type="button" aria-label="Pass">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M5 9h22v5a3 3 0 0 0 0 6v5H5v-5a3 3 0 0 0 0-6V9Z" />
+            <path d="M16 12.5 17.2 15l2.8.4-2 2 .5 2.8-2.5-1.3-2.5 1.3.5-2.8-2-2 2.8-.4 1.2-2.5Z" />
+          </svg>
+          <span>Pass</span>
+        </button>
+      </nav>
+    </section>
+
+    <main class="game-shell" hidden>
+      <div class="cinematic-backdrop" id="cinematicBackdrop" aria-hidden="true"></div>
+      <div class="rewind-overlay" id="rewindOverlay" aria-hidden="true" hidden>
+        <canvas class="rewind-static" id="rewindStatic"></canvas>
+        <div class="rewind-scanline"></div>
+        <div class="rewind-symbol">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path class="rewind-symbol-ring" d="M10 18A16 16 0 1 1 8.8 31" />
+            <path class="rewind-symbol-arrow" d="M10 8v10H0" />
+            <path class="rewind-symbol-chevron" d="m27 17-9 7 9 7v-5l8 5V17l-8 5Z" />
+          </svg>
+          <strong id="rewindStepLabel">REWIND</strong>
+        </div>
+      </div>
+      <section class="top-bar" aria-label="Game status">
+        <div class="hud-left">
+          <div class="hud-meta-row">
+            <h1 class="level-status">
+              <span id="levelLabel">Level</span>
+              <strong id="levelTitle">1</strong>
+            </h1>
+            <div class="attempt-status" id="attemptStatus" aria-label="5 attempts available">
+              <svg class="energy-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M13.4 2 5.8 13.1h5L9.8 22l8.4-12.2h-5.1L13.4 2Z" />
+              </svg>
+              <div class="attempt-value">
+                <strong id="attemptCount">7</strong>
+                <small id="attemptTimer">MAX</small>
+              </div>
+            </div>
+          </div>
+          <div class="moves-row">
+            <div class="stat moves-focus" id="movesStat">
+              <strong id="movesLeft">0</strong>
+              <span>Moves</span>
+            </div>
+          </div>
+        </div>
+        <div class="objective-stat" id="cheeseProgress" aria-label="1 objective remaining">
+          <div class="objective-item" id="cheeseObjective">
+            <img
+              src="assets/cheese-animation-frame-1-clean.png?v=v45-cheese-clean-1"
+              alt=""
+              draggable="false"
+            />
+            <strong id="cheeseRemaining">1</strong>
+          </div>
+          <div class="objective-item milk-objective" id="milkObjective" hidden>
+            <img data-asset-group="milk" data-src="assets/runtime/milk-bottle.png?v=v7-performance-1" alt="" draggable="false" />
+            <strong id="milkRemaining">0</strong>
+          </div>
+          <div class="objective-item pie-objective" id="pieObjective" hidden>
+            <img data-asset-group="pie" data-src="assets/pie-quarter.png?v=v45-pie-1" alt="" draggable="false" />
+            <strong id="pieRemaining">0</strong>
+          </div>
+          <div class="objective-item carrot-objective" id="carrotObjective" hidden>
+            <span class="carrot-objective-icon" aria-hidden="true"></span>
+            <strong id="carrotRemaining">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="maze-wrap" aria-label="Maze board">
+        <canvas
+          id="maze"
+          class="maze"
+          role="application"
+          aria-label="Maze board"
+          tabindex="0"
+        ></canvas>
+        <div
+          class="swipe-tutorial"
+          id="swipeTutorial"
+          role="status"
+          aria-label="Swipe up, right, down, and left to move"
+          hidden
+        >
+          <div class="swipe-tutorial-demo" id="swipeTutorialDemo" aria-hidden="true">
+            <span class="swipe-tutorial-trail"></span>
+            <span class="swipe-tutorial-hand">
+              <svg viewBox="0 0 24 24">
+                <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+                <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+                <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+                <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+              </svg>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="power-bar" id="powerBar" aria-label="Powers">
+        <button
+          class="power-button"
+          id="tornadoPowerButton"
+          type="button"
+          aria-label="Use maze tornado"
+          aria-pressed="false"
+          title="Maze tornado"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="tornado" data-src="assets/runtime/tornado-power.png?v=v7-performance-1" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-unlock-level" aria-hidden="true"></span>
+          <span class="power-count" id="tornadoPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button"
+          id="hammerPowerButton"
+          type="button"
+          aria-label="Use wall hammer"
+          aria-pressed="false"
+          title="Wall hammer"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="hammer" data-src="assets/runtime/hammer-power.png?v=v7-performance-1" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-unlock-level" aria-hidden="true"></span>
+          <span class="power-count" id="hammerPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button"
+          id="crystalPowerButton"
+          type="button"
+          aria-label="Use crystal vision"
+          aria-pressed="false"
+          title="Crystal vision"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="crystal" data-src="assets/runtime/crystal-power.png?v=v7-performance-1" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-unlock-level" aria-hidden="true"></span>
+          <span class="power-count" id="crystalPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button fishing-power-button"
+          id="fishingPowerButton"
+          type="button"
+          aria-label="Use fishing rod"
+          aria-pressed="false"
+          title="Fishing rod"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img
+              data-asset-group="fishing"
+              data-src="assets/runtime/fishing-power-transparent-v2.png?v=v7-performance-1"
+              alt=""
+              draggable="false"
+            />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-unlock-level" aria-hidden="true"></span>
+          <span class="power-count" id="fishingPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button"
+          id="rocketPowerButton"
+          type="button"
+          aria-label="Use mouse rocket"
+          aria-pressed="false"
+          title="Mouse rocket"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="rocket" data-src="assets/runtime/rocket-power.png?v=v7-performance-1" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-unlock-level" aria-hidden="true"></span>
+          <span class="power-count" id="rocketPowerCount" aria-hidden="true">1</span>
+        </button>
+      </section>
+
+      <div class="ad-banner-reserve" aria-hidden="true"></div>
+
+      <div
+        class="crystal-tutorial"
+        id="crystalTutorial"
+        role="status"
+        aria-label="Select Crystal Vision, then tap the transformed mouse"
+        hidden
+      >
+        <span class="crystal-tutorial-ring" aria-hidden="true"></span>
+        <span class="crystal-tutorial-hand" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+            <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+            <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+          </svg>
+        </span>
+      </div>
+
+      <div
+        class="crystal-tutorial tornado-tutorial"
+        id="tornadoTutorial"
+        role="status"
+        aria-label="Select Maze Tornado, then tap the transformed mouse"
+        hidden
+      >
+        <span class="crystal-tutorial-ring" aria-hidden="true"></span>
+        <span class="crystal-tutorial-hand" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+            <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+            <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+          </svg>
+        </span>
+      </div>
+
+      <div
+        class="crystal-tutorial power-intro-tutorial"
+        id="powerIntroTutorial"
+        role="status"
+        aria-label="Power tutorial in progress"
+        hidden
+      >
+        <span class="crystal-tutorial-ring" aria-hidden="true"></span>
+        <span class="crystal-tutorial-hand" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+            <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+            <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+          </svg>
+        </span>
+      </div>
+
+      <section class="movement-panel" id="movementPanel" aria-label="Movement controls" hidden>
+        <div class="control-modes" role="group" aria-label="Control mode">
+          <button
+            class="mode-button active"
+            id="swipeModeButton"
+            type="button"
+            aria-label="Use swipe controls"
+            aria-pressed="true"
+            title="Swipe controls"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+              <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+              <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+              <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+            </svg>
+          </button>
+          <button
+            class="mode-button"
+            id="arrowModeButton"
+            type="button"
+            aria-label="Use arrow controls"
+            aria-pressed="false"
+            title="Arrow controls"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2v20M2 12h20" />
+              <path d="m15 5-3-3-3 3M15 19l-3 3-3-3M5 9l-3 3 3 3M19 9l3 3-3 3" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="control-surface">
+          <div
+            class="swipe-pad"
+            id="swipePad"
+            role="application"
+            aria-label="Swipe in a direction to move the mouse"
+          >
+            <span class="swipe-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3v18M3 12h18" />
+                <path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3" />
+              </svg>
+            </span>
+          </div>
+
+          <div class="arrow-pad" id="arrowPad" aria-label="Directional buttons" hidden>
+            <button class="direction-button up" id="moveUp" type="button" aria-label="Move up">&#8593;</button>
+            <button class="direction-button left" id="moveLeft" type="button" aria-label="Move left">&#8592;</button>
+            <button class="direction-button right" id="moveRight" type="button" aria-label="Move right">&#8594;</button>
+            <button class="direction-button down" id="moveDown" type="button" aria-label="Move down">&#8595;</button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="power-shop"
+        id="powerShop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="powerShopTitle"
+        hidden
+      >
+        <div class="shop-power-icon" aria-hidden="true">
+          <img id="powerShopIcon" alt="" />
+        </div>
+        <h2 id="powerShopTitle">Buy Crystal Vision</h2>
+        <div class="shop-price" aria-label="Price">
+          <span class="currency-icon" aria-hidden="true">
+            <img src="assets/runtime/cash-button.png?v=v7-performance-1" alt="" draggable="false" />
+          </span>
+          <strong id="powerShopPrice">10</strong>
+          <span>for 1 use</span>
+        </div>
+        <p class="shop-balance">
+          Balance <strong id="powerShopBalance">0</strong>
+        </p>
+        <p class="shop-warning" id="powerShopWarning" hidden>Not enough shirt buttons.</p>
+        <div class="shop-buttons">
+          <button id="powerShopCancelButton" type="button">Close</button>
+          <button id="powerShopBuyButton" type="button">Buy +1</button>
+        </div>
+      </section>
+
+      <section
+        class="controls failure-dialog"
+        id="controlsPanel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="failureTitle"
+        aria-describedby="message"
+        hidden
+      >
+        <button class="failure-close" id="failureCloseButton" type="button" aria-label="Back to map" title="Back to map">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+
+        <div class="failure-copy">
+          <span class="failure-level" id="failureLevelLabel">LEVEL 1</span>
+          <h2 id="failureTitle">So close!</h2>
+          <p id="message" class="message">You can do it!</p>
+        </div>
+
+        <div class="failure-objectives" id="failureObjectivesPanel">
+          <strong class="failure-section-label">Objectives left</strong>
+          <div class="failure-objective-list" id="failureObjectiveList"></div>
+        </div>
+
+        <button class="failure-rescue" id="failureRescueButton" type="button" hidden>
+          <span class="failure-rescue-visual" aria-hidden="true">
+            <span class="failure-extra-moves" id="failureExtraMoves">+3</span>
+            <svg class="failure-rewind-icon" viewBox="0 0 24 24">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v6h6" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+            <canvas class="failure-helper-preview" id="failureHelperPreview" width="72" height="72"></canvas>
+          </span>
+          <span class="failure-rescue-copy">
+            <strong id="failureRescueTitle">Get +3 moves</strong>
+            <small id="failureRescueDescription">Continue this run</small>
+          </span>
+          <span class="failure-rescue-reward">
+            <strong id="failureRescueBadge">AD</strong>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="3" />
+              <path d="m10 9 5 3-5 3Z" />
+            </svg>
+          </span>
+        </button>
+
+        <button id="retryButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 6v5h-5" />
+            <path d="M18.5 15a7 7 0 1 1-1.4-8.1L20 11" />
+          </svg>
+          <span>Retry</span>
+        </button>
+
+        <div class="failure-ad-preview" id="failureAdPreview" hidden>
+          <span class="failure-ad-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5Z" /></svg>
+          </span>
+          <strong>Rewarded video</strong>
+          <small id="failureAdMessage">Preparing your second chance...</small>
+          <span class="failure-ad-track" aria-hidden="true"><i></i></span>
+        </div>
+      </section>
+    </main>
+
+    <script src="game.js?v=v8-world-coming-soon-3"></script>
+  </body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mouse Skin Color Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="skin-lab">
+      <section class="preview-panel" aria-label="Skin preview">
+        <div class="preview-toolbar">
+          <h1>Mouse Skin Lab</h1>
+          <div class="toolbar-actions">
+            <button id="resetButton" type="button">Reset</button>
+            <button id="downloadButton" class="primary-button" type="button">Download PNG</button>
+          </div>
+        </div>
+
+        <div class="preview-stage">
+          <canvas id="skinCanvas" width="482" height="512" aria-label="Mouse skin preview"></canvas>
+          <img id="sourceMouse" src="mouse.png" alt="" hidden />
+        </div>
+
+        <div class="preset-list" aria-label="Skin presets">
+          <button type="button" data-preset="original">Original</button>
+          <button type="button" data-preset="albino">Albino</button>
+          <button type="button" data-preset="chocolate">Chocolate</button>
+          <button type="button" data-preset="arctic">Arctic</button>
+          <button type="button" data-preset="forest">Forest</button>
+        </div>
+      </section>
+
+      <section class="controls-panel" aria-label="Skin colors">
+        <div class="palette-grid">
+          <label><span>Body</span><input id="bodyColor" type="color" /></label>
+          <label><span>Head</span><input id="headColor" type="color" /></label>
+          <label><span>Ears</span><input id="earsColor" type="color" /></label>
+          <label><span>Eyes</span><input id="eyesColor" type="color" /></label>
+          <label><span>Tail</span><input id="tailColor" type="color" /></label>
+          <label><span>Inner ears</span><input id="innerEarsColor" type="color" /></label>
+          <label><span>Whiskers</span><input id="whiskersColor" type="color" /></label>
+        </div>
+
+        <div class="code-panel">
+          <div class="code-toolbar">
+            <strong>Skin palette</strong>
+            <button id="copyButton" type="button">Copy palette</button>
+          </div>
+          <pre id="paletteOutput"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

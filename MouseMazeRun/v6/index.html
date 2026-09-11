@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>Mouse Maze Run</title>
+    <link rel="stylesheet" href="styles.css?v=v6-tutorial-audit-3" />
+  </head>
+  <body class="world-view">
+    <section class="world-screen" id="worldScreen" aria-label="Game progress">
+      <header class="world-header">
+        <div class="world-brand">
+          <p>Mouse Maze Run</p>
+          <h1>The Pantry</h1>
+        </div>
+        <div class="world-resources" aria-label="Player resources">
+          <div class="world-attempts" id="worldAttemptStatus" aria-label="5 attempts available">
+            <span>Attempts</span>
+            <strong id="worldAttemptCount">7</strong>
+            <small id="worldAttemptTimer">MAX</small>
+          </div>
+          <div class="world-currency" id="worldCurrencyStatus" aria-label="0 shirt buttons">
+            <img src="assets/cash-button.png?v=campaign-53" alt="" draggable="false" />
+            <strong id="worldCurrencyCount">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <div class="chapter-heading">
+        <div>
+          <span id="worldChapterLabel">Chapter 1</span>
+          <h2 id="worldChapterTitle">Through the cupboards</h2>
+        </div>
+        <div class="chapter-count" id="worldProgressText">0 / 14</div>
+      </div>
+
+      <div class="chapter-progress" aria-hidden="true">
+        <span id="worldProgressBar"></span>
+      </div>
+
+      <div class="world-map" id="worldMap">
+        <div class="world-map-track" id="worldMapTrack">
+          <div class="world-map-section world-map-section-one" id="worldChapterOneMap">
+            <div class="pantry-shelf shelf-top" aria-hidden="true">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-jar jar-blue"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle" aria-hidden="true">
+              <span class="pantry-box"></span>
+              <img class="map-rock" src="assets/rock.png?v=v4-rocks-1" alt="" />
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none" aria-hidden="true">
+              <path
+                d="M72 874 C105 835 140 824 176 810 S297 776 281 745 S199 704 223 681 S109 649 101 616 S48 578 65 552 S185 520 180 488 S302 455 292 423 S230 386 241 359 S112 322 122 294 S52 258 65 230 S172 192 166 166 S295 132 277 101 S170 67 205 41"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-two" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-box"></span>
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-jar jar-gold"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <path
+                d="M72 874 C104 845 139 832 173 819 S299 790 281 764 S255 719 238 699 S139 661 115 635 S48 598 65 570 S137 530 166 506 S307 471 288 442 S270 397 245 377 S155 333 130 313 S47 274 65 248 S145 207 176 184"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-three" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-box"></span>
+              <img class="map-rock" data-asset-group="tunnels" data-src="assets/tunnel.png?v=v45-tunnels-1" alt="" />
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-jar jar-blue"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <path
+                d="M83 875 C127 842 164 811 198 778 S229 711 190 682 S112 634 133 594 S257 535 236 493 S122 444 144 399 S283 344 249 300 S139 252 165 209 S265 153 215 111"
+              />
+            </svg>
+          </div>
+          <div class="world-map-section world-map-section-four" aria-hidden="true">
+            <div class="pantry-shelf shelf-top">
+              <span class="pantry-jar jar-blue"></span>
+              <span class="pantry-jar jar-coral"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <div class="pantry-shelf shelf-middle">
+              <span class="pantry-jar jar-gold"></span>
+              <span class="pantry-box"></span>
+            </div>
+            <svg class="world-path" viewBox="0 0 360 920" preserveAspectRatio="none">
+              <path
+                d="M72 874 C111 843 153 824 188 798 S286 754 263 719 S126 674 149 635 S287 582 255 541 S113 490 141 451 S286 399 250 357 S109 311 139 270 S278 214 241 174 S131 119 190 69"
+              />
+            </svg>
+          </div>
+          <div class="level-nodes" id="worldLevelNodes"></div>
+          <div class="world-mouse" id="worldMouse" aria-hidden="true">
+            <img src="assets/mouse.png?v=campaign-53" alt="" draggable="false" />
+          </div>
+        </div>
+      </div>
+
+      <div class="level-sheet-backdrop" id="levelSheetBackdrop" hidden></div>
+      <section
+        class="level-sheet"
+        id="levelSheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="levelSheetTitle"
+        hidden
+      >
+        <button class="sheet-close" id="levelSheetClose" type="button" aria-label="Close">&times;</button>
+        <div class="sheet-level-mark" id="sheetLevelMark">1</div>
+        <div class="sheet-copy">
+          <span id="levelSheetChapter">The Pantry</span>
+          <h2 id="levelSheetTitle">Level 1</h2>
+          <small class="sheet-difficulty" id="levelSheetDifficulty">Tutorial</small>
+          <p id="levelSheetObjective">Find the cheese</p>
+        </div>
+        <button class="sheet-play" id="levelSheetPlay" type="button">Play</button>
+      </section>
+    </section>
+
+    <main class="game-shell" hidden>
+      <div class="cinematic-backdrop" id="cinematicBackdrop" aria-hidden="true"></div>
+      <section class="top-bar" aria-label="Game status">
+        <div class="hud-left">
+          <div class="hud-meta-row">
+            <h1 class="level-status">
+              <span id="levelLabel">Level</span>
+              <strong id="levelTitle">1</strong>
+            </h1>
+            <div class="attempt-status" id="attemptStatus" aria-label="5 attempts available">
+              <svg class="energy-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M13.4 2 5.8 13.1h5L9.8 22l8.4-12.2h-5.1L13.4 2Z" />
+              </svg>
+              <div class="attempt-value">
+                <strong id="attemptCount">7</strong>
+                <small id="attemptTimer">MAX</small>
+              </div>
+            </div>
+          </div>
+          <div class="moves-row">
+            <div class="stat moves-focus" id="movesStat">
+              <strong id="movesLeft">0</strong>
+              <span>Moves</span>
+            </div>
+            <button
+              class="test-reset-button"
+              id="testResetButton"
+              type="button"
+              aria-label="Reset test game"
+              title="Reset test game"
+            >
+              &#8635;
+            </button>
+          </div>
+        </div>
+        <div class="objective-stat" id="cheeseProgress" aria-label="1 objective remaining">
+          <div class="objective-item" id="cheeseObjective">
+            <img
+              src="assets/cheese-animation-frame-1-clean.png?v=v45-cheese-clean-1"
+              alt=""
+              draggable="false"
+            />
+            <strong id="cheeseRemaining">1</strong>
+          </div>
+          <div class="objective-item milk-objective" id="milkObjective" hidden>
+            <img data-asset-group="milk" data-src="assets/milk-bottle.png?v=v45-dynamic-1" alt="" draggable="false" />
+            <strong id="milkRemaining">0</strong>
+          </div>
+          <div class="objective-item pie-objective" id="pieObjective" hidden>
+            <img data-asset-group="pie" data-src="assets/pie-quarter.png?v=v45-pie-1" alt="" draggable="false" />
+            <strong id="pieRemaining">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="maze-wrap" aria-label="Maze board">
+        <canvas
+          id="maze"
+          class="maze"
+          role="application"
+          aria-label="Maze board"
+          tabindex="0"
+        ></canvas>
+        <div
+          class="swipe-tutorial"
+          id="swipeTutorial"
+          role="status"
+          aria-label="Swipe up, right, down, and left to move"
+          hidden
+        >
+          <div class="swipe-tutorial-demo" id="swipeTutorialDemo" aria-hidden="true">
+            <span class="swipe-tutorial-trail"></span>
+            <span class="swipe-tutorial-hand">
+              <svg viewBox="0 0 24 24">
+                <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+                <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+                <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+                <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+              </svg>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="power-bar" id="powerBar" aria-label="Powers">
+        <button
+          class="power-button"
+          id="crystalPowerButton"
+          type="button"
+          aria-label="Use crystal vision"
+          aria-pressed="false"
+          title="Crystal vision"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="crystal" data-src="assets/crystal-power.png?v=campaign-53" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-count" id="crystalPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button"
+          id="tornadoPowerButton"
+          type="button"
+          aria-label="Use maze tornado"
+          aria-pressed="false"
+          title="Maze tornado"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="tornado" data-src="assets/tornado-power.png?v=campaign-53" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-count" id="tornadoPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button"
+          id="hammerPowerButton"
+          type="button"
+          aria-label="Use wall hammer"
+          aria-pressed="false"
+          title="Wall hammer"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="hammer" data-src="assets/hammer-power.png?v=campaign-53" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-count" id="hammerPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button fishing-power-button"
+          id="fishingPowerButton"
+          type="button"
+          aria-label="Use fishing rod"
+          aria-pressed="false"
+          title="Fishing rod"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img
+              data-asset-group="fishing"
+              data-src="assets/fishing-power-transparent-v2.png?v=v2-fishing-upright-1"
+              alt=""
+              draggable="false"
+            />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-count" id="fishingPowerCount" aria-hidden="true">1</span>
+        </button>
+        <button
+          class="power-button"
+          id="rocketPowerButton"
+          type="button"
+          aria-label="Use mouse rocket"
+          aria-pressed="false"
+          title="Mouse rocket"
+        >
+          <span class="power-icon" aria-hidden="true">
+            <img data-asset-group="rocket" data-src="assets/rocket-power.png?v=campaign-53" alt="" draggable="false" />
+          </span>
+          <span class="power-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <rect x="5" y="10" width="14" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </span>
+          <span class="power-count" id="rocketPowerCount" aria-hidden="true">1</span>
+        </button>
+      </section>
+
+      <div
+        class="crystal-tutorial"
+        id="crystalTutorial"
+        role="status"
+        aria-label="Select Crystal Vision, then tap the transformed mouse"
+        hidden
+      >
+        <span class="crystal-tutorial-ring" aria-hidden="true"></span>
+        <span class="crystal-tutorial-hand" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+            <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+            <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+          </svg>
+        </span>
+      </div>
+
+      <div
+        class="crystal-tutorial tornado-tutorial"
+        id="tornadoTutorial"
+        role="status"
+        aria-label="Select Maze Tornado, then tap the transformed mouse"
+        hidden
+      >
+        <span class="crystal-tutorial-ring" aria-hidden="true"></span>
+        <span class="crystal-tutorial-hand" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+            <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+            <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+          </svg>
+        </span>
+      </div>
+
+      <div
+        class="crystal-tutorial power-intro-tutorial"
+        id="powerIntroTutorial"
+        role="status"
+        aria-label="Power tutorial in progress"
+        hidden
+      >
+        <span class="crystal-tutorial-ring" aria-hidden="true"></span>
+        <span class="crystal-tutorial-hand" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+            <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+            <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+            <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+          </svg>
+        </span>
+      </div>
+
+      <section class="movement-panel" id="movementPanel" aria-label="Movement controls" hidden>
+        <div class="control-modes" role="group" aria-label="Control mode">
+          <button
+            class="mode-button active"
+            id="swipeModeButton"
+            type="button"
+            aria-label="Use swipe controls"
+            aria-pressed="true"
+            title="Swipe controls"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+              <path d="M14 10V4a2 2 0 0 0-4 0v6" />
+              <path d="M10 9.5V6a2 2 0 0 0-4 0v8" />
+              <path d="M6 14v-2a2 2 0 0 0-4 0v2a8 8 0 0 0 8 8h2c4.4 0 8-3.6 8-8v-3a2 2 0 0 0-4 0v1" />
+            </svg>
+          </button>
+          <button
+            class="mode-button"
+            id="arrowModeButton"
+            type="button"
+            aria-label="Use arrow controls"
+            aria-pressed="false"
+            title="Arrow controls"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2v20M2 12h20" />
+              <path d="m15 5-3-3-3 3M15 19l-3 3-3-3M5 9l-3 3 3 3M19 9l3 3-3 3" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="control-surface">
+          <div
+            class="swipe-pad"
+            id="swipePad"
+            role="application"
+            aria-label="Swipe in a direction to move the mouse"
+          >
+            <span class="swipe-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3v18M3 12h18" />
+                <path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3" />
+              </svg>
+            </span>
+          </div>
+
+          <div class="arrow-pad" id="arrowPad" aria-label="Directional buttons" hidden>
+            <button class="direction-button up" id="moveUp" type="button" aria-label="Move up">&#8593;</button>
+            <button class="direction-button left" id="moveLeft" type="button" aria-label="Move left">&#8592;</button>
+            <button class="direction-button right" id="moveRight" type="button" aria-label="Move right">&#8594;</button>
+            <button class="direction-button down" id="moveDown" type="button" aria-label="Move down">&#8595;</button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="power-shop"
+        id="powerShop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="powerShopTitle"
+        hidden
+      >
+        <div class="shop-power-icon" aria-hidden="true">
+          <img id="powerShopIcon" alt="" />
+        </div>
+        <h2 id="powerShopTitle">Buy Crystal Vision</h2>
+        <div class="shop-price" aria-label="Price">
+          <span class="currency-icon" aria-hidden="true">
+            <img src="assets/cash-button.png?v=campaign-53" alt="" draggable="false" />
+          </span>
+          <strong id="powerShopPrice">10</strong>
+          <span>for 1 use</span>
+        </div>
+        <p class="shop-balance">
+          Balance <strong id="powerShopBalance">0</strong>
+        </p>
+        <p class="shop-warning" id="powerShopWarning" hidden>Not enough shirt buttons.</p>
+        <div class="shop-buttons">
+          <button id="powerShopCancelButton" type="button">Close</button>
+          <button id="powerShopBuyButton" type="button">Buy +1</button>
+        </div>
+      </section>
+
+      <section class="controls" id="controlsPanel" aria-label="Level controls" hidden>
+        <p id="message" class="message">Study the maze, then swipe one cell at a time.</p>
+        <div class="buttons">
+          <button id="retryButton" type="button">Retry</button>
+        </div>
+      </section>
+    </main>
+
+  <script src="levels.generated.js?v=v6-mechanics-audit-1"></script>
+  <script src="game.js?v=v6-mechanics-audit-1"></script>
+  </body>
+</html>

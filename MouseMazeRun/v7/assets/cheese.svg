@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 100">
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe37d"/>
+      <stop offset="1" stop-color="#f1b83f"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efa52f"/>
+      <stop offset="1" stop-color="#ce7b25"/>
+    </linearGradient>
+  </defs>
+  <path d="M27 59L55 16l32 27z" fill="url(#top)" stroke="#d98a26" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M27 59l60-16-4 31-55 19z" fill="url(#side)" stroke="#bd6d20" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M27 59L55 16v29L28 93z" fill="#f3ad32" stroke="#ca7923" stroke-width="2" stroke-linejoin="round"/>
+  <ellipse cx="56" cy="36" rx="7" ry="5" fill="#d98625" transform="rotate(24 56 36)"/>
+  <ellipse cx="71" cy="55" rx="7" ry="5" fill="#d98625" transform="rotate(-12 71 55)"/>
+  <ellipse cx="48" cy="70" rx="6" ry="7" fill="#c97822"/>
+  <ellipse cx="69" cy="76" rx="6" ry="4" fill="#b96820"/>
+  <ellipse cx="36" cy="57" rx="4" ry="6" fill="#cf7e24"/>
+</svg>

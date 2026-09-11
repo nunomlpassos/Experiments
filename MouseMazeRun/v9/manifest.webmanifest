@@ -1,0 +1,10 @@
+{
+  "name": "Mouse Maze Run",
+  "short_name": "Mouse Maze Run",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#a8cf48",
+  "theme_color": "#526832"
+}
